@@ -1,49 +1,37 @@
 ﻿/**
- * Extract an image File/Blob from a ClipboardEvent or DataTransfer
+ * clipboard.js — image extraction helpers
+ * Used by: paste event, drop event, file input
+ */
+
+/**
+ * Extract an image File from a ClipboardEvent (Ctrl+V)
  */
 export function extractImageFromClipboard(e) {
-  const items = e.clipboardData?.items ?? [];
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      return item.getAsFile();
-    }
-  }
-  return null;
-}
-
-export function extractImageFromDrop(e) {
-  const files = e.dataTransfer?.files ?? [];
-  for (const file of files) {
-    if (file.type.startsWith('image/')) return file;
-  }
-  return null;
+  const items = Array.from(e.clipboardData?.items ?? []);
+  const imgItem = items.find(item => item.type.startsWith('image/'));
+  return imgItem ? imgItem.getAsFile() : null;
 }
 
 /**
- * Read a File or Blob as a data URL (base64)
+ * Read a File/Blob as a base64 data URL
  */
 export function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 }
 
 /**
- * Try the modern Clipboard API (needs focus + permission)
+ * Return a safe display name from a File object.
+ * If the file has no name (e.g. pasted from clipboard), generate one.
  */
-export async function readImageFromClipboardAPI() {
-  try {
-    const items = await navigator.clipboard.read();
-    for (const item of items) {
-      const imgType = item.types.find(t => t.startsWith('image/'));
-      if (imgType) {
-        const blob = await item.getType(imgType);
-        return blob;
-      }
-    }
-  } catch { /* fallback handled by paste event */ }
-  return null;
+export function safeFileName(file) {
+  if (file.name && file.name !== 'image.png' && file.name !== 'blob') {
+    return file.name;
+  }
+  const ext = file.type.split('/')[1] ?? 'png';
+  return `clipboard-${Date.now()}.${ext}`;
 }
