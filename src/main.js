@@ -7,6 +7,7 @@ import { toast } from './lib/toast.js';
 import { DropZoneHTML, initDropZone, initWindowDrop } from './components/DropZone.js';
 import { SizeSelectorHTML, initSizeSelector } from './components/SizeSelector.js';
 import { SheetPreviewHTML, renderSheetPreview } from './components/SheetPreview.js';
+import { PrintSettingsHTML, initPrintSettings } from './components/PrintSettings.js';
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ document.getElementById('app').innerHTML = `
         ${SheetPreviewHTML()}
       </div>
 
-      <aside class="right-panel">
+      <aside class="right-panel" id="right-panel">
         <div class="panel-section">
           <div class="panel-label">Print Size</div>
           ${SizeSelectorHTML()}
@@ -117,6 +118,8 @@ document.getElementById('app').innerHTML = `
           </div>
         </div>
 
+        ${PrintSettingsHTML({ fitMode: state.fitMode, showCutGuides: state.showCutGuides })}
+
         <div class="panel-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column;padding-bottom:8px">
           <div class="panel-label">Recent Photos</div>
           <div class="history-list" id="history-list"></div>
@@ -141,6 +144,7 @@ const btnCountDn   = document.getElementById('btn-count-down');
 const historyList  = document.getElementById('history-list');
 const printFrame   = document.getElementById('print-frame');
 const canvasArea   = document.getElementById('canvas-area');
+const rightPanel   = document.getElementById('right-panel');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getTiling() {
@@ -180,12 +184,19 @@ function updatePreview() {
 }
 
 // ─── Size Selector Initialization ─────────────────────────────────────────────
-initSizeSelector(document.querySelector('.right-panel'), (newSizeId) => {
+initSizeSelector(rightPanel, (newSizeId) => {
   state.sizeId = newSizeId;
   state.count = null;
   updateCountDisplay();
   if (state.imageDataUrl) updatePreview();
 }, state.sizeId);
+
+// ─── Print Settings Initialization ───────────────────────────────────────────
+initPrintSettings(rightPanel, ({ fitMode, showCutGuides }) => {
+  if (fitMode !== undefined) state.fitMode = fitMode;
+  if (showCutGuides !== undefined) state.showCutGuides = showCutGuides;
+  if (state.imageDataUrl) updatePreview();
+});
 
 // ─── Load Image ───────────────────────────────────────────────────────────────
 async function loadImage(file) {
