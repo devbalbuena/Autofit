@@ -1,13 +1,14 @@
 ﻿import './style.css';
 import { SIZES, SHEET_SIZES, DEFAULT_SIZE_ID, DEFAULT_SHEET, getSizeById, getSheetById } from './lib/sizes.js';
 import { calcTiling } from './lib/tiler.js';
-import { loadHistory, saveToHistory } from './lib/history.js';
-import { extractImageFromClipboard, fileToDataUrl, safeFileName } from './lib/clipboard.js';
+import { saveToHistory, generateThumbnail } from './lib/history.js';
+import { extractImageFromClipboard, fileToDataUrl, safeFileName, getImageDimensions } from './lib/clipboard.js';
 import { toast } from './lib/toast.js';
 import { DropZoneHTML, initDropZone, initWindowDrop } from './components/DropZone.js';
 import { SizeSelectorHTML, initSizeSelector } from './components/SizeSelector.js';
 import { SheetPreviewHTML, renderSheetPreview } from './components/SheetPreview.js';
 import { PrintSettingsHTML, initPrintSettings } from './components/PrintSettings.js';
+import { HistoryPanelHTML, initHistoryPanel } from './components/HistoryPanel.js';
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -121,8 +122,7 @@ document.getElementById('app').innerHTML = `
         ${PrintSettingsHTML({ fitMode: state.fitMode, showCutGuides: state.showCutGuides })}
 
         <div class="panel-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column;padding-bottom:8px">
-          <div class="panel-label">Recent Photos</div>
-          <div class="history-list" id="history-list"></div>
+          ${HistoryPanelHTML()}
         </div>
       </aside>
     </div>
@@ -141,7 +141,6 @@ const sheetSelect  = document.getElementById('sheet-select');
 const countDisplay = document.getElementById('count-display');
 const btnCountUp   = document.getElementById('btn-count-up');
 const btnCountDn   = document.getElementById('btn-count-down');
-const historyList  = document.getElementById('history-list');
 const printFrame   = document.getElementById('print-frame');
 const canvasArea   = document.getElementById('canvas-area');
 const rightPanel   = document.getElementById('right-panel');
@@ -184,7 +183,7 @@ function updatePreview() {
 }
 
 // ─── Size Selector Initialization ─────────────────────────────────────────────
-initSizeSelector(rightPanel, (newSizeId) => {
+const sizeSelector = initSizeSelector(rightPanel, (newSizeId) => {
   state.sizeId = newSizeId;
   state.count = null;
   updateCountDisplay();
@@ -198,6 +197,26 @@ initPrintSettings(rightPanel, ({ fitMode, showCutGuides }) => {
   if (state.imageDataUrl) updatePreview();
 });
 
+// ─── History Panel Initialization (with One-Click Restore) ────────────────────
+const historyPanel = initHistoryPanel(rightPanel, (historyItem) => {
+  state.imageDataUrl = historyItem.dataUrl;
+  state.imageName    = historyItem.name;
+  state.count        = null;
+
+  if (historyItem.sizeId && getSizeById(historyItem.sizeId)) {
+    state.sizeId = historyItem.sizeId;
+    sizeSelector.setSelected(historyItem.sizeId);
+  }
+
+  dropZone.style.display = 'none';
+  sheetWrap.classList.add('visible');
+  btnPrint.disabled = false;
+  btnClear.disabled = false;
+
+  updatePreview();
+  toast(`Restored: ${historyItem.name}`, 'success');
+});
+
 // ─── Load Image ───────────────────────────────────────────────────────────────
 async function loadImage(file) {
   if (!file || !file.type.startsWith('image/')) {
@@ -208,6 +227,8 @@ async function loadImage(file) {
   try {
     const dataUrl = await fileToDataUrl(file);
     const name    = safeFileName(file);
+    const dimensions = await getImageDimensions(dataUrl);
+    const thumbUrl = await generateThumbnail(dataUrl, 120);
 
     state.imageDataUrl = dataUrl;
     state.imageName    = name;
@@ -219,15 +240,20 @@ async function loadImage(file) {
     btnClear.disabled = false;
 
     updatePreview();
-    toast(`Loaded: ${name}`, 'success');
+    toast(`Loaded: ${name} (${dimensions.width}×${dimensions.height})`, 'success');
 
     saveToHistory({
       id: Date.now().toString(),
       name,
       dataUrl,
-      savedAt: new Date().toLocaleString(),
+      thumbUrl,
+      sizeId: state.sizeId,
+      sheetId: state.sheetId,
+      dimensions,
+      savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
-    renderHistory();
+
+    historyPanel.refresh();
   } catch (err) {
     toast('Could not load image — ' + err.message, 'error');
   }
@@ -244,41 +270,6 @@ function clearPhoto() {
   btnPrint.disabled = true;
   btnClear.disabled = true;
   updateCountDisplay();
-}
-
-// ─── History ──────────────────────────────────────────────────────────────────
-function renderHistory() {
-  const items = loadHistory();
-  if (items.length === 0) {
-    historyList.innerHTML =
-      '<div class="history-empty">No recent photos yet.<br/>Load a photo to get started.</div>';
-    return;
-  }
-  historyList.innerHTML = items.map(item => `
-    <div class="history-item fade-in" data-id="${item.id}" title="Click to reload">
-      <img class="history-thumb" src="${item.dataUrl}" alt="${item.name}" />
-      <div class="history-info">
-        <div class="history-name">${item.name}</div>
-        <div class="history-date">${item.savedAt}</div>
-      </div>
-    </div>
-  `).join('');
-
-  historyList.querySelectorAll('.history-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const item = loadHistory().find(i => i.id === el.dataset.id);
-      if (!item) return;
-      state.imageDataUrl = item.dataUrl;
-      state.imageName    = item.name;
-      state.count        = null;
-      dropZone.style.display = 'none';
-      sheetWrap.classList.add('visible');
-      btnPrint.disabled = false;
-      btnClear.disabled = false;
-      updatePreview();
-      toast(`Restored: ${item.name}`, 'success');
-    });
-  });
 }
 
 // ─── Trigger Print ────────────────────────────────────────────────────────────
@@ -353,4 +344,3 @@ window.addEventListener('resize', () => {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 updateCountDisplay();
-renderHistory();
