@@ -1,6 +1,5 @@
 ﻿/**
- * clipboard.js — image extraction helpers
- * Used by: paste event, drop event, file input
+ * clipboard.js — image extraction and metadata helpers
  */
 
 /**
@@ -25,13 +24,45 @@ export function fileToDataUrl(file) {
 }
 
 /**
- * Return a safe display name from a File object.
- * If the file has no name (e.g. pasted from clipboard), generate one.
+ * Return a safe display name from a File object
  */
 export function safeFileName(file) {
   if (file.name && file.name !== 'image.png' && file.name !== 'blob') {
     return file.name;
   }
-  const ext = file.type.split('/')[1] ?? 'png';
-  return `clipboard-${Date.now()}.${ext}`;
+  const ext = file.type?.split('/')[1] ?? 'png';
+  return `clipboard-${new Date().toISOString().slice(11, 19).replace(/:/g, '')}.${ext}`;
+}
+
+/**
+ * Extract natural pixel dimensions and resolution of an image data URL
+ * @param {string} dataUrl
+ * @returns {Promise<{ width: number, height: number, megapixels: string, orientation: string }>}
+ */
+export function getImageDimensions(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const mp = ((img.naturalWidth * img.naturalHeight) / 1000000).toFixed(1);
+      resolve({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        megapixels: `${mp} MP`,
+        orientation: img.naturalWidth >= img.naturalHeight ? 'landscape' : 'portrait',
+      });
+    };
+    img.onerror = () => resolve({ width: 0, height: 0, megapixels: 'Unknown', orientation: 'portrait' });
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Format bytes to readable size
+ */
+export function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
