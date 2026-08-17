@@ -1,18 +1,21 @@
 ﻿import './style.css';
-import { SIZES, SHEET_SIZES, DEFAULT_SIZE_ID, DEFAULT_SHEET, getSizeById } from './lib/sizes.js';
-import { calcTiling, fitScale } from './lib/tiler.js';
+import { SIZES, SHEET_SIZES, DEFAULT_SIZE_ID, DEFAULT_SHEET, getSizeById, getSheetById } from './lib/sizes.js';
+import { calcTiling } from './lib/tiler.js';
 import { loadHistory, saveToHistory } from './lib/history.js';
 import { extractImageFromClipboard, fileToDataUrl, safeFileName } from './lib/clipboard.js';
 import { toast } from './lib/toast.js';
 import { DropZoneHTML, initDropZone, initWindowDrop } from './components/DropZone.js';
+import { SizeSelectorHTML, initSizeSelector } from './components/SizeSelector.js';
+import { SheetPreviewHTML, renderSheetPreview } from './components/SheetPreview.js';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let state = {
   imageDataUrl: null,
   imageName: 'photo',
   sizeId: DEFAULT_SIZE_ID,
-  sheet: DEFAULT_SHEET,
-  count: null, // null = auto-fill max
+  sheetId: DEFAULT_SHEET,
+  count: null, // null = auto max fit
+  fitMode: 'cover',
 };
 
 // ─── App Shell HTML ───────────────────────────────────────────────────────────
@@ -82,26 +85,21 @@ document.getElementById('app').innerHTML = `
     <div class="workspace">
       <div class="canvas-area" id="canvas-area">
         ${DropZoneHTML()}
-
-        <div class="sheet-wrap" id="sheet-wrap">
-          <div class="sheet" id="sheet">
-            <div class="sheet-grid" id="sheet-grid"></div>
-          </div>
-          <div class="sheet-info" id="sheet-info"></div>
-        </div>
+        ${SheetPreviewHTML()}
       </div>
 
       <aside class="right-panel">
         <div class="panel-section">
           <div class="panel-label">Print Size</div>
-          <div class="size-grid" id="size-grid"></div>
+          ${SizeSelectorHTML()}
         </div>
 
         <div class="panel-section">
           <div class="panel-label">Sheet</div>
           <select class="sheet-select" id="sheet-select">
-            <option value="a4">A4 (8.27 × 11.69 in)</option>
-            <option value="letter">Letter (8.5 × 11 in)</option>
+            ${Object.values(SHEET_SIZES).map(s => `
+              <option value="${s.id}" ${s.id === state.sheetId ? 'selected' : ''}>${s.label}</option>
+            `).join('')}
           </select>
         </div>
 
@@ -134,10 +132,6 @@ const fileInput    = document.getElementById('file-input');
 const btnPrint     = document.getElementById('btn-print');
 const btnClear     = document.getElementById('btn-clear');
 const sheetWrap    = document.getElementById('sheet-wrap');
-const sheet        = document.getElementById('sheet');
-const sheetGrid    = document.getElementById('sheet-grid');
-const sheetInfo    = document.getElementById('sheet-info');
-const sizeGrid     = document.getElementById('size-grid');
 const sheetSelect  = document.getElementById('sheet-select');
 const countDisplay = document.getElementById('count-display');
 const btnCountUp   = document.getElementById('btn-count-up');
@@ -147,42 +141,15 @@ const printFrame   = document.getElementById('print-frame');
 const canvasArea   = document.getElementById('canvas-area');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function getMaxFit() {
-  const size   = getSizeById(state.sizeId);
-  const sheet_ = SHEET_SIZES[state.sheet];
-  const { maxFit } = calcTiling(size.w, size.h, sheet_.w, sheet_.h);
-  return maxFit;
+function getTiling() {
+  const sizeObj  = getSizeById(state.sizeId);
+  const sheetObj = getSheetById(state.sheetId);
+  return calcTiling(sizeObj.w, sizeObj.h, sheetObj.w, sheetObj.h, state.count);
 }
 
-// ─── Size Grid ────────────────────────────────────────────────────────────────
-function buildSizeGrid() {
-  sizeGrid.innerHTML = SIZES.map(s => {
-    const aspect   = s.w / s.h;
-    const previewH = 30;
-    const previewW = Math.max(Math.round(previewH * aspect), 18);
-    return `
-      <div class="size-card ${s.id === state.sizeId ? 'active' : ''}" data-size="${s.id}">
-        <div class="size-card-preview" style="width:${previewW}px;height:${previewH}px"></div>
-        <div class="size-card-name">${s.name}</div>
-        <div class="size-card-dim">${s.label}</div>
-      </div>`;
-  }).join('');
-
-  sizeGrid.querySelectorAll('.size-card').forEach(card => {
-    card.addEventListener('click', () => {
-      state.sizeId = card.dataset.size;
-      state.count  = null;
-      buildSizeGrid();
-      updateCountDisplay();
-      if (state.imageDataUrl) renderSheet();
-    });
-  });
-}
-
-// ─── Count Display ────────────────────────────────────────────────────────────
 function updateCountDisplay() {
-  const max = getMaxFit();
-  if (state.count === null || state.count >= max) {
+  const tiling = getTiling();
+  if (state.count === null || state.count >= tiling.maxFit) {
     state.count = null;
     countDisplay.textContent = 'Auto';
   } else {
@@ -191,51 +158,32 @@ function updateCountDisplay() {
 }
 
 // ─── Sheet Preview ────────────────────────────────────────────────────────────
-function renderSheet() {
+function updatePreview() {
   if (!state.imageDataUrl) return;
 
-  const size   = getSizeById(state.sizeId);
-  const sheet_ = SHEET_SIZES[state.sheet];
-  const { cols, rows, maxFit } = calcTiling(size.w, size.h, sheet_.w, sheet_.h);
+  const sizeObj  = getSizeById(state.sizeId);
+  const sheetObj = getSheetById(state.sheetId);
+  const tiling   = getTiling();
 
-  const usedCount = state.count === null ? maxFit : Math.min(state.count, maxFit);
-
-  const cw    = canvasArea.clientWidth  || 800;
-  const ch    = canvasArea.clientHeight || 600;
-  const scale = fitScale(sheet_.w, sheet_.h, cw, ch, 80);
-
-  const sheetPxW = Math.round(sheet_.w * 96 * scale);
-  const sheetPxH = Math.round(sheet_.h * 96 * scale);
-  const cellW    = Math.round(size.w   * 96 * scale);
-  const cellH    = Math.round(size.h   * 96 * scale);
-
-  sheet.style.width  = sheetPxW + 'px';
-  sheet.style.height = sheetPxH + 'px';
-
-  const offsetTop  = Math.round((sheetPxH - rows * cellH) / 2);
-  const offsetLeft = Math.round((sheetPxW - cols * cellW) / 2);
-
-  sheetGrid.style.cssText = `
-    display: grid;
-    position: absolute;
-    grid-template-columns: repeat(${cols}, ${cellW}px);
-    grid-template-rows: repeat(${rows}, ${cellH}px);
-    top: ${offsetTop}px;
-    left: ${offsetLeft}px;
-  `;
-
-  sheetGrid.innerHTML = Array.from({ length: rows * cols }, (_, i) => {
-    const filled = i < usedCount;
-    return `<div class="sheet-cell" style="width:${cellW}px;height:${cellH}px">
-      ${filled ? `<img src="${state.imageDataUrl}" alt="photo"/>` : ''}
-    </div>`;
-  }).join('');
-
-  sheetInfo.textContent =
-    `${cols} col × ${rows} row · ${usedCount} copies · ${size.name} on ${sheet_.name}`;
+  renderSheetPreview({
+    containerEl: sheetWrap,
+    sheetObj,
+    sizeObj,
+    tilingResult: tiling,
+    imageDataUrl: state.imageDataUrl,
+    fitMode: state.fitMode,
+  });
 
   updateCountDisplay();
 }
+
+// ─── Size Selector Initialization ─────────────────────────────────────────────
+const sizeSelector = initSizeSelector(document.querySelector('.right-panel'), (newSizeId) => {
+  state.sizeId = newSizeId;
+  state.count = null;
+  updateCountDisplay();
+  if (state.imageDataUrl) updatePreview();
+}, state.sizeId);
 
 // ─── Load Image ───────────────────────────────────────────────────────────────
 async function loadImage(file) {
@@ -252,16 +200,14 @@ async function loadImage(file) {
     state.imageName    = name;
     state.count        = null;
 
-    // Swap UI: hide drop zone, show sheet
     dropZone.style.display = 'none';
     sheetWrap.classList.add('visible');
     btnPrint.disabled = false;
     btnClear.disabled = false;
 
-    renderSheet();
+    updatePreview();
     toast(`Loaded: ${name}`, 'success');
 
-    // Persist to history
     saveToHistory({
       id: Date.now().toString(),
       name,
@@ -282,9 +228,6 @@ function clearPhoto() {
 
   dropZone.style.display = '';
   sheetWrap.classList.remove('visible');
-  sheetGrid.innerHTML = '';
-  sheetInfo.textContent = '';
-
   btnPrint.disabled = true;
   btnClear.disabled = true;
   updateCountDisplay();
@@ -319,7 +262,7 @@ function renderHistory() {
       sheetWrap.classList.add('visible');
       btnPrint.disabled = false;
       btnClear.disabled = false;
-      renderSheet();
+      updatePreview();
       toast(`Restored: ${item.name}`, 'success');
     });
   });
@@ -329,25 +272,26 @@ function renderHistory() {
 function doPrint() {
   if (!state.imageDataUrl) return;
 
-  const size   = getSizeById(state.sizeId);
-  const sheet_ = SHEET_SIZES[state.sheet];
-  const { cols, rows, maxFit } = calcTiling(size.w, size.h, sheet_.w, sheet_.h);
-  const usedCount = state.count === null ? maxFit : Math.min(state.count, maxFit);
+  const sizeObj  = getSizeById(state.sizeId);
+  const sheetObj = getSheetById(state.sheetId);
+  const tiling   = getTiling();
+  const usedCount = state.count === null ? tiling.maxFit : Math.min(state.count, tiling.maxFit);
 
   printFrame.innerHTML = `
-    <div style="width:${sheet_.w}in;height:${sheet_.h}in;position:relative;overflow:hidden;margin:0;padding:0">
+    <div style="width:${sheetObj.w}in;height:${sheetObj.h}in;position:relative;overflow:hidden;margin:0;padding:0">
       <div style="
         display:grid;
-        grid-template-columns:repeat(${cols},${size.w}in);
-        grid-template-rows:repeat(${rows},${size.h}in);
+        grid-template-columns:repeat(${tiling.cols},${tiling.cellW}in);
+        grid-template-rows:repeat(${tiling.rows},${tiling.cellH}in);
+        gap:${tiling.gap}in;
         position:absolute;
-        top:${(sheet_.h - rows * size.h) / 2}in;
-        left:${(sheet_.w - cols * size.w) / 2}in;
+        top:${tiling.offsetY}in;
+        left:${tiling.offsetX}in;
       ">
-        ${Array.from({ length: cols * rows }, (_, i) => {
+        ${Array.from({ length: tiling.cols * tiling.rows }, (_, i) => {
           const filled = i < usedCount;
-          return `<div style="width:${size.w}in;height:${size.h}in;overflow:hidden;border:.25pt solid rgba(0,0,0,.1)">
-            ${filled ? `<img src="${state.imageDataUrl}" style="width:100%;height:100%;object-fit:cover;display:block"/>` : ''}
+          return `<div style="width:${tiling.cellW}in;height:${tiling.cellH}in;overflow:hidden;border:0.25pt solid rgba(0,0,0,0.15);position:relative">
+            ${filled ? `<img src="${state.imageDataUrl}" style="width:100%;height:100%;object-fit:${state.fitMode};display:block"/>` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -356,96 +300,57 @@ function doPrint() {
   window.print();
 }
 
-// ─── Window-level drag indicator ─────────────────────────────────────────────
-let windowDragActive = false;
-let windowDragTimer  = null;
-
-window.addEventListener('dragenter', (e) => {
-  if ([...e.dataTransfer.types].includes('Files')) {
-    windowDragActive = true;
-    document.body.classList.add('window-drag-active');
-    clearTimeout(windowDragTimer);
-  }
-});
-
-window.addEventListener('dragleave', (e) => {
-  // Only clear if truly leaving the window
-  if (e.clientX === 0 && e.clientY === 0) {
-    windowDragActive = false;
-    document.body.classList.remove('window-drag-active');
-  }
-});
-
-window.addEventListener('drop', (e) => {
-  e.preventDefault();
-  document.body.classList.remove('window-drag-active');
-  windowDragActive = false;
-});
-
 // ─── Event Wiring ────────────────────────────────────────────────────────────
-
-// Drop zone drag/drop
 initDropZone(dropZone, loadImage);
-
-// Window-level drop (when photo already loaded, still allow re-drop)
 initWindowDrop(loadImage);
 
-// File picker — wired via <label for="file-input"> in DropZoneHTML()
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
   if (file) loadImage(file);
-  fileInput.value = ''; // reset so same file can be picked again
+  fileInput.value = '';
 });
 
-// Clipboard paste (Ctrl+V) — works from anywhere on the page
 document.addEventListener('paste', (e) => {
   const file = extractImageFromClipboard(e);
   if (file) {
-    // Flash the drop zone to confirm paste received
     if (dropZone.style.display !== 'none') {
       dropZone.classList.add('paste-received');
       setTimeout(() => dropZone.classList.remove('paste-received'), 700);
     }
     loadImage(file);
   }
-  // Silent fail — don't toast if user is pasting text elsewhere
 });
 
-// Toolbar buttons
 btnClear.addEventListener('click', clearPhoto);
 btnPrint.addEventListener('click', doPrint);
 
-// Sheet selector
 sheetSelect.addEventListener('change', () => {
-  state.sheet = sheetSelect.value;
+  state.sheetId = sheetSelect.value;
   state.count = null;
   updateCountDisplay();
-  if (state.imageDataUrl) renderSheet();
+  if (state.imageDataUrl) updatePreview();
 });
 
-// Count controls
 btnCountUp.addEventListener('click', () => {
-  const max = getMaxFit();
-  const current = state.count === null ? max : state.count;
-  state.count = current >= max ? null : current + 1; // wrap back to Auto at max
+  const tiling = getTiling();
+  const current = state.count === null ? tiling.maxFit : state.count;
+  state.count = current >= tiling.maxFit ? null : current + 1;
   updateCountDisplay();
-  if (state.imageDataUrl) renderSheet();
+  if (state.imageDataUrl) updatePreview();
 });
 
 btnCountDn.addEventListener('click', () => {
-  const max = getMaxFit();
-  const current = state.count === null ? max : state.count;
+  const tiling = getTiling();
+  const current = state.count === null ? tiling.maxFit : state.count;
   state.count = Math.max(current - 1, 1);
   updateCountDisplay();
-  if (state.imageDataUrl) renderSheet();
+  if (state.imageDataUrl) updatePreview();
 });
 
-// Re-render on window resize
 window.addEventListener('resize', () => {
-  if (state.imageDataUrl) renderSheet();
+  if (state.imageDataUrl) updatePreview();
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-buildSizeGrid();
 updateCountDisplay();
 renderHistory();
