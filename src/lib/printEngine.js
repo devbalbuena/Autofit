@@ -1,8 +1,9 @@
 ﻿/**
  * printEngine.js
  * Handles exact physical print dimension calculations, dynamic @page rules injection,
- * and high-DPI print DOM preparation.
+ * and high-DPI print execution with lifecycle events.
  */
+import { toast } from './toast.js';
 
 let styleEl = null;
 
@@ -108,4 +109,63 @@ export function buildPrintHTML({
       </div>
     </div>
   `;
+}
+
+/**
+ * Execute print routine with DOM preparation and feedback
+ */
+export function executePrint({
+  printFrameEl,
+  sheetObj,
+  tiling,
+  imageDataUrl,
+  fitMode = 'cover',
+  showCutGuides = true,
+}) {
+  if (!imageDataUrl) {
+    toast('Please load a photo first before printing', 'error');
+    return false;
+  }
+
+  // Update dynamic @page CSS
+  updatePrintPageCSS(sheetObj, 'portrait');
+
+  // Populate print container
+  printFrameEl.innerHTML = buildPrintHTML({
+    sheetObj,
+    tiling,
+    imageDataUrl,
+    fitMode,
+    showCutGuides,
+  });
+
+  // Pre-load images inside print frame before triggering print
+  const printImg = printFrameEl.querySelector('img');
+  if (printImg && !printImg.complete) {
+    printImg.onload = () => {
+      window.print();
+    };
+  } else {
+    setTimeout(() => {
+      window.print();
+    }, 50);
+  }
+
+  return true;
+}
+
+/**
+ * Initialize print keyboard shortcut (Ctrl+P / Cmd+P) and lifecycle listeners
+ */
+export function initPrintShortcut(onTriggerPrint) {
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+      e.preventDefault();
+      onTriggerPrint();
+    }
+  });
+
+  window.addEventListener('afterprint', () => {
+    toast('Print dialog closed', 'info', 2000);
+  });
 }

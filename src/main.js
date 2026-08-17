@@ -7,6 +7,7 @@ import { toast } from './lib/toast.js';
 import { DropZoneHTML, initDropZone, initWindowDrop } from './components/DropZone.js';
 import { SizeSelectorHTML, initSizeSelector } from './components/SizeSelector.js';
 import { SheetPreviewHTML, renderSheetPreview } from './components/SheetPreview.js';
+import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let state = {
@@ -16,6 +17,7 @@ let state = {
   sheetId: DEFAULT_SHEET,
   count: null, // null = auto max fit
   fitMode: 'cover',
+  showCutGuides: true,
 };
 
 // ─── App Shell HTML ───────────────────────────────────────────────────────────
@@ -72,7 +74,7 @@ document.getElementById('app').innerHTML = `
         Clear
       </button>
       <div class="toolbar-spacer"></div>
-      <button class="btn primary" id="btn-print" disabled>
+      <button class="btn primary" id="btn-print" disabled title="Print (Ctrl+P)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M4 6V2h8v4"/>
           <rect x="2" y="6" width="12" height="6" rx="1"/>
@@ -178,7 +180,7 @@ function updatePreview() {
 }
 
 // ─── Size Selector Initialization ─────────────────────────────────────────────
-const sizeSelector = initSizeSelector(document.querySelector('.right-panel'), (newSizeId) => {
+initSizeSelector(document.querySelector('.right-panel'), (newSizeId) => {
   state.sizeId = newSizeId;
   state.count = null;
   updateCountDisplay();
@@ -268,41 +270,28 @@ function renderHistory() {
   });
 }
 
-// ─── Print ────────────────────────────────────────────────────────────────────
-function doPrint() {
+// ─── Trigger Print ────────────────────────────────────────────────────────────
+function handlePrint() {
   if (!state.imageDataUrl) return;
 
   const sizeObj  = getSizeById(state.sizeId);
   const sheetObj = getSheetById(state.sheetId);
   const tiling   = getTiling();
-  const usedCount = state.count === null ? tiling.maxFit : Math.min(state.count, tiling.maxFit);
 
-  printFrame.innerHTML = `
-    <div style="width:${sheetObj.w}in;height:${sheetObj.h}in;position:relative;overflow:hidden;margin:0;padding:0">
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(${tiling.cols},${tiling.cellW}in);
-        grid-template-rows:repeat(${tiling.rows},${tiling.cellH}in);
-        gap:${tiling.gap}in;
-        position:absolute;
-        top:${tiling.offsetY}in;
-        left:${tiling.offsetX}in;
-      ">
-        ${Array.from({ length: tiling.cols * tiling.rows }, (_, i) => {
-          const filled = i < usedCount;
-          return `<div style="width:${tiling.cellW}in;height:${tiling.cellH}in;overflow:hidden;border:0.25pt solid rgba(0,0,0,0.15);position:relative">
-            ${filled ? `<img src="${state.imageDataUrl}" style="width:100%;height:100%;object-fit:${state.fitMode};display:block"/>` : ''}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-
-  window.print();
+  executePrint({
+    printFrameEl: printFrame,
+    sheetObj,
+    tiling,
+    imageDataUrl: state.imageDataUrl,
+    fitMode: state.fitMode,
+    showCutGuides: state.showCutGuides,
+  });
 }
 
 // ─── Event Wiring ────────────────────────────────────────────────────────────
 initDropZone(dropZone, loadImage);
 initWindowDrop(loadImage);
+initPrintShortcut(handlePrint);
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
@@ -322,7 +311,7 @@ document.addEventListener('paste', (e) => {
 });
 
 btnClear.addEventListener('click', clearPhoto);
-btnPrint.addEventListener('click', doPrint);
+btnPrint.addEventListener('click', handlePrint);
 
 sheetSelect.addEventListener('change', () => {
   state.sheetId = sheetSelect.value;
