@@ -9,6 +9,7 @@ import { SizeSelectorHTML, initSizeSelector } from './components/SizeSelector.js
 import { SheetPreviewHTML, renderSheetPreview } from './components/SheetPreview.js';
 import { PrintSettingsHTML, initPrintSettings } from './components/PrintSettings.js';
 import { HistoryPanelHTML, initHistoryPanel } from './components/HistoryPanel.js';
+import { ShortcutsModalHTML, initShortcutsModal } from './components/ShortcutsModal.js';
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ document.getElementById('app').innerHTML = `
 
     <div class="sidebar-section-label">Tools</div>
 
-    <a class="nav-item active">
+    <a class="nav-item active" id="nav-photoprint">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
         <rect x="2" y="2" width="12" height="12" rx="1"/>
         <path d="M2 11l3-3 2 2 4-5 3 4"/>
@@ -69,14 +70,26 @@ document.getElementById('app').innerHTML = `
   <div class="main">
     <div class="toolbar">
       <span class="toolbar-title">Photo Print Sizer</span>
-      <button class="btn ghost" id="btn-clear" disabled>
+
+      <button class="btn ghost" id="btn-clear" disabled title="Clear loaded photo (Esc)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M3 3l10 10M13 3L3 13"/>
         </svg>
         Clear
       </button>
+
+      <button class="btn ghost" id="btn-shortcuts" title="Keyboard Shortcuts (?)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="6"/>
+          <path d="M6 6.5a2 2 0 0 1 3.5 1.2c0 1-.8 1.5-1.5 1.8V10"/>
+          <circle cx="8" cy="12.5" r="0.5" fill="currentColor"/>
+        </svg>
+        Shortcuts
+      </button>
+
       <div class="toolbar-spacer"></div>
-      <button class="btn primary" id="btn-print" disabled title="Print (Ctrl+P)">
+
+      <button class="btn primary" id="btn-print" disabled title="Print Sheet (Ctrl+P)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M4 6V2h8v4"/>
           <rect x="2" y="6" width="12" height="6" rx="1"/>
@@ -112,9 +125,9 @@ document.getElementById('app').innerHTML = `
           <div class="count-row">
             <span class="count-label">Per sheet</span>
             <div class="count-controls">
-              <button class="count-btn" id="btn-count-down">−</button>
+              <button class="count-btn" id="btn-count-down" title="Decrease copies (−)">−</button>
               <span class="count-value" id="count-display">Auto</span>
-              <button class="count-btn" id="btn-count-up">+</button>
+              <button class="count-btn" id="btn-count-up" title="Increase copies (+)">+</button>
             </div>
           </div>
         </div>
@@ -128,22 +141,24 @@ document.getElementById('app').innerHTML = `
     </div>
   </div>
 
+  ${ShortcutsModalHTML()}
   <div class="print-frame" id="print-frame"></div>
 `;
 
 // ─── DOM Refs ─────────────────────────────────────────────────────────────────
-const dropZone     = document.getElementById('drop-zone');
-const fileInput    = document.getElementById('file-input');
-const btnPrint     = document.getElementById('btn-print');
-const btnClear     = document.getElementById('btn-clear');
-const sheetWrap    = document.getElementById('sheet-wrap');
-const sheetSelect  = document.getElementById('sheet-select');
-const countDisplay = document.getElementById('count-display');
-const btnCountUp   = document.getElementById('btn-count-up');
-const btnCountDn   = document.getElementById('btn-count-down');
-const printFrame   = document.getElementById('print-frame');
-const canvasArea   = document.getElementById('canvas-area');
-const rightPanel   = document.getElementById('right-panel');
+const dropZone       = document.getElementById('drop-zone');
+const fileInput      = document.getElementById('file-input');
+const btnPrint       = document.getElementById('btn-print');
+const btnClear       = document.getElementById('btn-clear');
+const btnShortcuts   = document.getElementById('btn-shortcuts');
+const sheetWrap      = document.getElementById('sheet-wrap');
+const sheetSelect    = document.getElementById('sheet-select');
+const countDisplay   = document.getElementById('count-display');
+const btnCountUp     = document.getElementById('btn-count-up');
+const btnCountDn     = document.getElementById('btn-count-down');
+const printFrame     = document.getElementById('print-frame');
+const canvasArea     = document.getElementById('canvas-area');
+const rightPanel     = document.getElementById('right-panel');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getTiling() {
@@ -196,6 +211,12 @@ initPrintSettings(rightPanel, ({ fitMode, showCutGuides }) => {
   if (showCutGuides !== undefined) state.showCutGuides = showCutGuides;
   if (state.imageDataUrl) updatePreview();
 });
+
+// ─── Shortcuts Modal Initialization ───────────────────────────────────────────
+const shortcutsModal = initShortcutsModal(document.body);
+if (btnShortcuts) {
+  btnShortcuts.addEventListener('click', () => shortcutsModal.open());
+}
 
 // ─── History Panel Initialization (with One-Click Restore) ────────────────────
 const historyPanel = initHistoryPanel(rightPanel, (historyItem) => {
@@ -290,7 +311,7 @@ function handlePrint() {
   });
 }
 
-// ─── Event Wiring ────────────────────────────────────────────────────────────
+// ─── Event Wiring & Keyboard Navigation ──────────────────────────────────────
 initDropZone(dropZone, loadImage);
 initWindowDrop(loadImage);
 initPrintShortcut(handlePrint);
@@ -301,6 +322,48 @@ fileInput.addEventListener('change', () => {
   fileInput.value = '';
 });
 
+// Global Keyboard Shortcuts
+document.addEventListener('keydown', (e) => {
+  // Ignore inside inputs or editable elements
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+  // Ctrl+O: Browse Files
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'o' || e.key === 'O')) {
+    e.preventDefault();
+    fileInput.click();
+    return;
+  }
+
+  // Esc: Clear photo or close modal
+  if (e.key === 'Escape') {
+    shortcutsModal.close();
+    if (state.imageDataUrl) clearPhoto();
+    return;
+  }
+
+  // ?: Toggle Shortcuts Modal
+  if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+    e.preventDefault();
+    shortcutsModal.toggle();
+    return;
+  }
+
+  // + / =: Increase copies
+  if (e.key === '+' || e.key === '=') {
+    e.preventDefault();
+    btnCountUp.click();
+    return;
+  }
+
+  // - / _: Decrease copies
+  if (e.key === '-' || e.key === '_') {
+    e.preventDefault();
+    btnCountDn.click();
+    return;
+  }
+});
+
+// Clipboard Paste
 document.addEventListener('paste', (e) => {
   const file = extractImageFromClipboard(e);
   if (file) {
