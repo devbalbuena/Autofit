@@ -1,14 +1,15 @@
 ﻿/**
  * SizeSelector component
- * Renders category filters and size preset cards.
+ * Renders category filters, size preset cards, and ID Combo packages.
  */
-import { SIZES, SIZE_CATEGORIES, getSizeById } from '../lib/sizes.js';
+import { SIZES, SIZE_CATEGORIES } from '../lib/sizes.js';
 
 export function SizeSelectorHTML() {
   return `
     <div class="size-selector-container">
       <div class="size-category-tabs" id="size-category-tabs">
         <button class="cat-tab active" data-cat="ALL">All</button>
+        <button class="cat-tab" data-cat="${SIZE_CATEGORIES.COMBO}">Combos</button>
         <button class="cat-tab" data-cat="${SIZE_CATEGORIES.ID}">ID</button>
         <button class="cat-tab" data-cat="${SIZE_CATEGORIES.PHOTO}">Photo</button>
         <button class="cat-tab" data-cat="${SIZE_CATEGORIES.LARGE}">Doc</button>
@@ -35,6 +36,17 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
 
     gridEl.innerHTML = filteredSizes.map(s => {
       const isSelected = s.id === selectedId;
+
+      if (s.isCombo) {
+        return `
+          <div class="size-card size-card-combo ${isSelected ? 'active' : ''}" data-size="${s.id}" tabindex="0" role="button" aria-pressed="${isSelected}">
+            <div class="combo-badge">🪪 Combo Pack</div>
+            <div class="size-card-name">${s.name}</div>
+            <div class="size-card-dim" style="font-size:9.5px;color:var(--accent)">${s.label}</div>
+          </div>
+        `;
+      }
+
       const aspect = s.w / s.h;
       const previewH = 28;
       const previewW = Math.min(Math.max(Math.round(previewH * aspect), 14), 48);
@@ -71,6 +83,17 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
         tabsEl.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         activeCategory = tab.dataset.cat;
+
+        const filtered = activeCategory === 'ALL'
+          ? SIZES
+          : SIZES.filter(s => s.category === activeCategory);
+
+        // If current selection is not in the new tab, select first item
+        if (!filtered.some(s => s.id === selectedId) && filtered.length > 0) {
+          selectedId = filtered[0].id;
+          onSelect(selectedId);
+        }
+
         renderGrid();
       });
     });
@@ -81,6 +104,14 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
   return {
     setSelected(id) {
       selectedId = id;
+      // Auto switch category tab if needed
+      const found = SIZES.find(s => s.id === id);
+      if (found && tabsEl && activeCategory !== 'ALL' && found.category !== activeCategory) {
+        tabsEl.querySelectorAll('.cat-tab').forEach(t => {
+          t.classList.toggle('active', t.dataset.cat === found.category);
+        });
+        activeCategory = found.category;
+      }
       renderGrid();
     }
   };

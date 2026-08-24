@@ -1,16 +1,15 @@
 ﻿/**
  * printEngine.js
  * Handles exact physical print dimension calculations, dynamic @page rules injection,
- * and high-DPI print execution with lifecycle events.
+ * combo package layouts, and high-DPI print execution.
  */
 import { toast } from './toast.js';
+import { getCSSFilterString } from '../components/ImageAdjustments.js';
 
 let styleEl = null;
 
 /**
  * Inject or update the dynamic @page CSS rule for exact physical paper size
- * @param {Object} sheetObj - { w, h, name }
- * @param {string} orientation - 'portrait' | 'landscape'
  */
 export function updatePrintPageCSS(sheetObj, orientation = 'portrait') {
   if (!styleEl) {
@@ -44,8 +43,6 @@ export function updatePrintPageCSS(sheetObj, orientation = 'portrait') {
 
 /**
  * Build the exact physical print layout DOM markup in inches
- * @param {Object} params - { sheetObj, tiling, imageDataUrl, fitMode, showCutGuides }
- * @returns {string} HTML string
  */
 export function buildPrintHTML({
   sheetObj,
@@ -53,13 +50,60 @@ export function buildPrintHTML({
   imageDataUrl,
   fitMode = 'cover',
   showCutGuides = true,
+  adjustments = {},
 }) {
-  const usedCount = tiling.total;
-  const totalCells = tiling.cols * tiling.rows;
-
   const cutGuideStyle = showCutGuides
     ? 'border: 0.25pt dashed rgba(0, 0, 0, 0.4);'
     : 'border: none;';
+
+  const filterCSS = getCSSFilterString(adjustments);
+  const rot = adjustments.rotation ?? 0;
+  const rotTransform = rot !== 0 ? `transform: rotate(${rot}deg);` : '';
+
+  if (tiling.isCombo) {
+    // Combo Layout
+    return `
+      <div class="print-page" style="
+        width: ${sheetObj.w}in;
+        height: ${sheetObj.h}in;
+        position: relative;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      ">
+        ${tiling.cells.map((cell, i) => `
+          <div class="print-cell" style="
+            width: ${cell.w}in;
+            height: ${cell.h}in;
+            position: absolute;
+            left: ${cell.x}in;
+            top: ${cell.y}in;
+            overflow: hidden;
+            box-sizing: border-box;
+            ${cutGuideStyle}
+          ">
+            <img src="${imageDataUrl}" style="
+              width: 100%;
+              height: 100%;
+              object-fit: ${fitMode};
+              display: block;
+              filter: ${filterCSS};
+              ${rotTransform}
+              image-rendering: -webkit-optimize-contrast;
+              image-rendering: high-quality;
+            " alt="print combo ${cell.name}" />
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // Standard Grid Layout
+  const usedCount = tiling.total;
+  const totalCells = tiling.cols * tiling.rows;
 
   return `
     <div class="print-page" style="
@@ -99,6 +143,8 @@ export function buildPrintHTML({
                   height: 100%;
                   object-fit: ${fitMode};
                   display: block;
+                  filter: ${filterCSS};
+                  ${rotTransform}
                   image-rendering: -webkit-optimize-contrast;
                   image-rendering: high-quality;
                 " alt="print copy ${i + 1}" />
@@ -112,7 +158,7 @@ export function buildPrintHTML({
 }
 
 /**
- * Execute print routine with DOM preparation and feedback
+ * Execute print routine
  */
 export function executePrint({
   printFrameEl,
@@ -121,41 +167,36 @@ export function executePrint({
   imageDataUrl,
   fitMode = 'cover',
   showCutGuides = true,
+  adjustments = {},
 }) {
   if (!imageDataUrl) {
     toast('Please load a photo first before printing', 'error');
     return false;
   }
 
-  // Update dynamic @page CSS
   updatePrintPageCSS(sheetObj, 'portrait');
 
-  // Populate print container
   printFrameEl.innerHTML = buildPrintHTML({
     sheetObj,
     tiling,
     imageDataUrl,
     fitMode,
     showCutGuides,
+    adjustments,
   });
 
-  // Pre-load images inside print frame before triggering print
   const printImg = printFrameEl.querySelector('img');
   if (printImg && !printImg.complete) {
-    printImg.onload = () => {
-      window.print();
-    };
+    printImg.onload = () => window.print();
   } else {
-    setTimeout(() => {
-      window.print();
-    }, 50);
+    setTimeout(() => window.print(), 50);
   }
 
   return true;
 }
 
 /**
- * Initialize print keyboard shortcut (Ctrl+P / Cmd+P) and lifecycle listeners
+ * Initialize print keyboard shortcut (Ctrl+P / Cmd+P)
  */
 export function initPrintShortcut(onTriggerPrint) {
   document.addEventListener('keydown', (e) => {

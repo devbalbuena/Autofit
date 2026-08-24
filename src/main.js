@@ -1,6 +1,6 @@
 ﻿import './style.css';
 import { SIZES, SHEET_SIZES, DEFAULT_SIZE_ID, DEFAULT_SHEET, getSizeById, getSheetById } from './lib/sizes.js';
-import { calcTiling } from './lib/tiler.js';
+import { calcTiling, calcComboTiling } from './lib/tiler.js';
 import { saveToHistory, generateThumbnail } from './lib/history.js';
 import { extractImageFromClipboard, fileToDataUrl, safeFileName, getImageDimensions } from './lib/clipboard.js';
 import { toast } from './lib/toast.js';
@@ -8,9 +8,11 @@ import { DropZoneHTML, initDropZone, initWindowDrop } from './components/DropZon
 import { SizeSelectorHTML, initSizeSelector } from './components/SizeSelector.js';
 import { SheetPreviewHTML, renderSheetPreview } from './components/SheetPreview.js';
 import { PrintSettingsHTML, initPrintSettings } from './components/PrintSettings.js';
+import { ImageAdjustmentsHTML, initImageAdjustments } from './components/ImageAdjustments.js';
 import { HistoryPanelHTML, initHistoryPanel } from './components/HistoryPanel.js';
 import { ShortcutsModalHTML, initShortcutsModal } from './components/ShortcutsModal.js';
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
+import { exportHighResPNG } from './lib/exporter.js';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let state = {
@@ -21,6 +23,13 @@ let state = {
   count: null, // null = auto max fit
   fitMode: 'cover',
   showCutGuides: true,
+  adjustments: {
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    isBW: false,
+    rotation: 0,
+  },
 };
 
 // ─── App Shell HTML ───────────────────────────────────────────────────────────
@@ -64,7 +73,7 @@ document.getElementById('app').innerHTML = `
       <span style="margin-left:auto;font-size:9px;font-family:var(--font-mono);opacity:0.5">SOON</span>
     </a>
 
-    <div class="sidebar-footer">v1.0.0 · offline</div>
+    <div class="sidebar-footer">v1.1.0 · offline</div>
   </aside>
 
   <div class="main">
@@ -89,6 +98,14 @@ document.getElementById('app').innerHTML = `
 
       <div class="toolbar-spacer"></div>
 
+      <button class="btn secondary" id="btn-export-png" disabled title="Download 300 DPI High-Res Sheet PNG">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v8m-3-3l3 3 3-3"/>
+          <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/>
+        </svg>
+        Export PNG (300 DPI)
+      </button>
+
       <button class="btn primary" id="btn-print" disabled title="Print Sheet (Ctrl+P)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M4 6V2h8v4"/>
@@ -106,36 +123,61 @@ document.getElementById('app').innerHTML = `
       </div>
 
       <aside class="right-panel" id="right-panel">
-        <div class="panel-section">
-          <div class="panel-label">Print Size</div>
-          ${SizeSelectorHTML()}
+        <!-- Tabbed Header -->
+        <div class="panel-tabs-header" id="panel-tabs-header">
+          <button class="panel-main-tab active" data-tab="layout">
+            <span>📐</span> Layout
+          </button>
+          <button class="panel-main-tab" data-tab="adjust">
+            <span>🎨</span> Adjust
+          </button>
+          <button class="panel-main-tab" data-tab="history">
+            <span>🕒</span> Recent
+          </button>
         </div>
 
-        <div class="panel-section">
-          <div class="panel-label">Sheet</div>
-          <select class="sheet-select" id="sheet-select">
-            ${Object.values(SHEET_SIZES).map(s => `
-              <option value="${s.id}" ${s.id === state.sheetId ? 'selected' : ''}>${s.label}</option>
-            `).join('')}
-          </select>
-        </div>
-
-        <div class="panel-section">
-          <div class="panel-label">Copies</div>
-          <div class="count-row">
-            <span class="count-label">Per sheet</span>
-            <div class="count-controls">
-              <button class="count-btn" id="btn-count-down" title="Decrease copies (−)">−</button>
-              <span class="count-value" id="count-display">Auto</span>
-              <button class="count-btn" id="btn-count-up" title="Increase copies (+)">+</button>
+        <!-- Tab Content Panes -->
+        <div class="panel-tab-content">
+          <!-- ── TAB 1: LAYOUT & SIZES ── -->
+          <div class="tab-pane active" id="pane-layout">
+            <div class="panel-section">
+              <div class="panel-label">Print Size & Combos</div>
+              ${SizeSelectorHTML()}
             </div>
+
+            <div class="panel-section">
+              <div class="panel-label">Sheet</div>
+              <select class="sheet-select" id="sheet-select">
+                ${Object.values(SHEET_SIZES).map(s => `
+                  <option value="${s.id}" ${s.id === state.sheetId ? 'selected' : ''}>${s.label}</option>
+                `).join('')}
+              </select>
+            </div>
+
+            <div class="panel-section" id="section-copies">
+              <div class="panel-label">Copies</div>
+              <div class="count-row">
+                <span class="count-label">Per sheet</span>
+                <div class="count-controls">
+                  <button class="count-btn" id="btn-count-down" title="Decrease copies (−)">−</button>
+                  <span class="count-value" id="count-display">Auto</span>
+                  <button class="count-btn" id="btn-count-up" title="Increase copies (+)">+</button>
+                </div>
+              </div>
+            </div>
+
+            ${PrintSettingsHTML({ fitMode: state.fitMode, showCutGuides: state.showCutGuides })}
           </div>
-        </div>
 
-        ${PrintSettingsHTML({ fitMode: state.fitMode, showCutGuides: state.showCutGuides })}
+          <!-- ── TAB 2: PHOTO ADJUSTMENTS ── -->
+          <div class="tab-pane" id="pane-adjust">
+            ${ImageAdjustmentsHTML(state.adjustments)}
+          </div>
 
-        <div class="panel-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column;padding-bottom:8px">
-          ${HistoryPanelHTML()}
+          <!-- ── TAB 3: RECENT HISTORY ── -->
+          <div class="tab-pane" id="pane-history">
+            ${HistoryPanelHTML()}
+          </div>
         </div>
       </aside>
     </div>
@@ -149,6 +191,7 @@ document.getElementById('app').innerHTML = `
 const dropZone       = document.getElementById('drop-zone');
 const fileInput      = document.getElementById('file-input');
 const btnPrint       = document.getElementById('btn-print');
+const btnExportPng   = document.getElementById('btn-export-png');
 const btnClear       = document.getElementById('btn-clear');
 const btnShortcuts   = document.getElementById('btn-shortcuts');
 const sheetWrap      = document.getElementById('sheet-wrap');
@@ -156,18 +199,47 @@ const sheetSelect    = document.getElementById('sheet-select');
 const countDisplay   = document.getElementById('count-display');
 const btnCountUp     = document.getElementById('btn-count-up');
 const btnCountDn     = document.getElementById('btn-count-down');
+const sectionCopies  = document.getElementById('section-copies');
 const printFrame     = document.getElementById('print-frame');
 const canvasArea     = document.getElementById('canvas-area');
 const rightPanel     = document.getElementById('right-panel');
+const panelTabsHeader = document.getElementById('panel-tabs-header');
+
+// ─── Right Panel Tab Switching ────────────────────────────────────────────────
+if (panelTabsHeader) {
+  panelTabsHeader.querySelectorAll('.panel-main-tab').forEach(tabBtn => {
+    tabBtn.addEventListener('click', () => {
+      panelTabsHeader.querySelectorAll('.panel-main-tab').forEach(b => b.classList.remove('active'));
+      tabBtn.classList.add('active');
+
+      const targetTab = tabBtn.dataset.tab;
+      rightPanel.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.toggle('active', pane.id === `pane-${targetTab}`);
+      });
+    });
+  });
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getTiling() {
   const sizeObj  = getSizeById(state.sizeId);
   const sheetObj = getSheetById(state.sheetId);
+
+  if (sizeObj.isCombo) {
+    return calcComboTiling(sizeObj.comboItems, sheetObj.w, sheetObj.h);
+  }
+
   return calcTiling(sizeObj.w, sizeObj.h, sheetObj.w, sheetObj.h, state.count);
 }
 
 function updateCountDisplay() {
+  const sizeObj = getSizeById(state.sizeId);
+  if (sizeObj.isCombo) {
+    if (sectionCopies) sectionCopies.style.display = 'none';
+    return;
+  }
+  if (sectionCopies) sectionCopies.style.display = 'block';
+
   const tiling = getTiling();
   if (state.count === null || state.count >= tiling.maxFit) {
     state.count = null;
@@ -192,6 +264,8 @@ function updatePreview() {
     tilingResult: tiling,
     imageDataUrl: state.imageDataUrl,
     fitMode: state.fitMode,
+    adjustments: state.adjustments,
+    showCutGuides: state.showCutGuides,
   });
 
   updateCountDisplay();
@@ -204,6 +278,12 @@ const sizeSelector = initSizeSelector(rightPanel, (newSizeId) => {
   updateCountDisplay();
   if (state.imageDataUrl) updatePreview();
 }, state.sizeId);
+
+// ─── Image Adjustments Initialization ─────────────────────────────────────────
+initImageAdjustments(rightPanel, (newAdjustments) => {
+  state.adjustments = newAdjustments;
+  if (state.imageDataUrl) updatePreview();
+}, state.adjustments);
 
 // ─── Print Settings Initialization ───────────────────────────────────────────
 initPrintSettings(rightPanel, ({ fitMode, showCutGuides }) => {
@@ -232,6 +312,7 @@ const historyPanel = initHistoryPanel(rightPanel, (historyItem) => {
   dropZone.style.display = 'none';
   sheetWrap.classList.add('visible');
   btnPrint.disabled = false;
+  btnExportPng.disabled = false;
   btnClear.disabled = false;
 
   updatePreview();
@@ -258,6 +339,7 @@ async function loadImage(file) {
     dropZone.style.display = 'none';
     sheetWrap.classList.add('visible');
     btnPrint.disabled = false;
+    btnExportPng.disabled = false;
     btnClear.disabled = false;
 
     updatePreview();
@@ -289,6 +371,7 @@ function clearPhoto() {
   dropZone.style.display = '';
   sheetWrap.classList.remove('visible');
   btnPrint.disabled = true;
+  btnExportPng.disabled = true;
   btnClear.disabled = true;
   updateCountDisplay();
 }
@@ -308,6 +391,26 @@ function handlePrint() {
     imageDataUrl: state.imageDataUrl,
     fitMode: state.fitMode,
     showCutGuides: state.showCutGuides,
+    adjustments: state.adjustments,
+  });
+}
+
+// ─── Trigger Export PNG ───────────────────────────────────────────────────────
+function handleExportPNG() {
+  if (!state.imageDataUrl) return;
+
+  const sizeObj  = getSizeById(state.sizeId);
+  const sheetObj = getSheetById(state.sheetId);
+  const tiling   = getTiling();
+
+  exportHighResPNG({
+    sheetObj,
+    sizeObj,
+    tilingResult: tiling,
+    imageDataUrl: state.imageDataUrl,
+    fitMode: state.fitMode,
+    showCutGuides: state.showCutGuides,
+    adjustments: state.adjustments,
   });
 }
 
@@ -324,38 +427,32 @@ fileInput.addEventListener('change', () => {
 
 // Global Keyboard Shortcuts
 document.addEventListener('keydown', (e) => {
-  // Ignore inside inputs or editable elements
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
 
-  // Ctrl+O: Browse Files
   if ((e.ctrlKey || e.metaKey) && (e.key === 'o' || e.key === 'O')) {
     e.preventDefault();
     fileInput.click();
     return;
   }
 
-  // Esc: Clear photo or close modal
   if (e.key === 'Escape') {
     shortcutsModal.close();
     if (state.imageDataUrl) clearPhoto();
     return;
   }
 
-  // ?: Toggle Shortcuts Modal
   if (e.key === '?' || (e.shiftKey && e.key === '/')) {
     e.preventDefault();
     shortcutsModal.toggle();
     return;
   }
 
-  // + / =: Increase copies
   if (e.key === '+' || e.key === '=') {
     e.preventDefault();
     btnCountUp.click();
     return;
   }
 
-  // - / _: Decrease copies
   if (e.key === '-' || e.key === '_') {
     e.preventDefault();
     btnCountDn.click();
@@ -377,6 +474,7 @@ document.addEventListener('paste', (e) => {
 
 btnClear.addEventListener('click', clearPhoto);
 btnPrint.addEventListener('click', handlePrint);
+btnExportPng.addEventListener('click', handleExportPNG);
 
 sheetSelect.addEventListener('change', () => {
   state.sheetId = sheetSelect.value;
