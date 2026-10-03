@@ -1,4 +1,4 @@
-﻿/* =============================================
+/* =============================================
    AutoFit — Design System
    ============================================= */
 
@@ -29,8 +29,8 @@
   --paper:         #ffffff;
 
   /* Typography */
-  --font-body:  'Plus Jakarta Sans', sans-serif;
-  --font-mono:  'IBM Plex Mono', monospace;
+  --font-body:  'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:  'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Spacing */
   --radius-sm:  4px;
@@ -1342,3 +1342,338 @@ body.window-drag-active .canvas-area::after {
 .tab-pane.active {
   display: flex;
 }
+
+/* =============================================
+   NEW: Multi-Photo Queue Bar
+   ============================================= */
+.photo-queue-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  max-width: 90%;
+  overflow-x: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.queue-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.queue-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-item {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  background: #000;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.queue-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.queue-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(79, 142, 247, 0.5);
+}
+
+.queue-item.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(79, 142, 247, 0.6);
+}
+
+.btn-queue-remove {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 14px;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.queue-item:hover .btn-queue-remove {
+  opacity: 1;
+}
+
+.btn-queue-remove:hover {
+  background: var(--danger);
+}
+
+.btn-add-more-photos {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px dashed var(--border);
+  color: var(--accent);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-add-more-photos:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* =============================================
+   NEW: Professional Corner Crop Hairline Marks
+   ============================================= */
+.crop-corner {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.crop-corner.top-left {
+  top: 0;
+  left: 0;
+  border-top: 1.5px solid rgba(0, 0, 0, 0.85);
+  border-left: 1.5px solid rgba(0, 0, 0, 0.85);
+}
+
+.crop-corner.top-right {
+  top: 0;
+  right: 0;
+  border-top: 1.5px solid rgba(0, 0, 0, 0.85);
+  border-right: 1.5px solid rgba(0, 0, 0, 0.85);
+}
+
+.crop-corner.bottom-left {
+  bottom: 0;
+  left: 0;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.85);
+  border-left: 1.5px solid rgba(0, 0, 0, 0.85);
+}
+
+.crop-corner.bottom-right {
+  bottom: 0;
+  right: 0;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.85);
+  border-right: 1.5px solid rgba(0, 0, 0, 0.85);
+}
+
+.cell-guide-border {
+  border: 1px dashed rgba(0, 0, 0, 0.45) !important;
+}
+
+/* =============================================
+   NEW: ID Name Tag Banner
+   ============================================= */
+.cell-nametag-banner {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid #000000;
+  color: #000000;
+  text-align: center;
+  padding: 2px 4px;
+  font-family: Arial, sans-serif;
+  z-index: 5;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.nametag-main {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.nametag-sub {
+  font-size: 6.5px;
+  font-weight: 500;
+  color: #333333;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.input-text-nametag {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input-text-nametag:focus {
+  border-color: var(--accent);
+}
+
+/* =============================================
+   NEW: Passport Biometric Oval Guideline
+   ============================================= */
+.passport-oval-guide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.passport-oval-guide .oval-shape {
+  width: 58%;
+  height: 74%;
+  border: 1px dashed rgba(79, 142, 247, 0.7);
+  border-radius: 50% 50% 48% 48% / 55% 55% 45% 45%;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.12);
+}
+
+/* =============================================
+   NEW: Background Tint Selector
+   ============================================= */
+.bg-tint-picker {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.bg-tint-btn {
+  flex: 1;
+  padding: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--bg-surface);
+  color: var(--ink-muted);
+  transition: all 0.15s ease;
+}
+
+.bg-tint-btn:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.bg-tint-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  color: var(--ink);
+}
+
+/* =============================================
+   NEW: Custom Size Card & Creator Form
+   ============================================= */
+.size-card-add {
+  border: 1px dashed var(--accent) !important;
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.size-card-add:hover {
+  background: rgba(79, 142, 247, 0.22) !important;
+}
+
+.size-card-custom {
+  position: relative;
+}
+
+.btn-custom-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink-muted);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.btn-custom-delete:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.custom-size-form {
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.custom-size-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.input-text {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input-text:focus {
+  border-color: var(--accent);
+}
+
+.panel-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+

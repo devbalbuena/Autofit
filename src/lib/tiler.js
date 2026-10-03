@@ -1,12 +1,12 @@
-﻿import { SCREEN_DPI } from './sizes.js';
+import { SCREEN_DPI } from './sizes.js';
 
 /**
- * Calculate best tiling layout of photos on a sheet.
- * Supports standard single size grids and multi-size ID combo packages.
+ * Calculate optimal tiling layout of photos on a sheet.
+ * Supports standard single size grids, custom margins/gaps, and multi-size ID combo packages.
  */
 export function calcTiling(printW, printH, sheetW, sheetH, count = null, options = {}) {
-  const margin = options.margin ?? 0.2;
-  const gap = options.gap ?? 0.05;
+  const margin = options.margin !== undefined ? Math.max(0, options.margin) : 0.2;
+  const gap    = options.gap !== undefined ? Math.max(0, options.gap) : 0.05;
 
   const usableW = Math.max(sheetW - margin * 2, 0.1);
   const usableH = Math.max(sheetH - margin * 2, 0.1);
@@ -34,8 +34,28 @@ export function calcTiling(printW, printH, sheetW, sheetH, count = null, options
   const gridW = cols * cellW + Math.max(0, cols - 1) * gap;
   const gridH = rows * cellH + Math.max(0, rows - 1) * gap;
 
-  const offsetX = Math.max(0, (sheetW - gridW) / 2);
-  const offsetY = Math.max(0, (sheetH - gridH) / 2);
+  const offsetX = Math.max(margin, (sheetW - gridW) / 2);
+  const offsetY = Math.max(margin, (sheetH - gridH) / 2);
+
+  // Generate explicit cell coordinates for deterministic rendering
+  const cells = [];
+  for (let i = 0; i < maxFit; i++) {
+    const colIdx = i % cols;
+    const rowIdx = Math.floor(i / cols);
+    const x = offsetX + colIdx * (cellW + gap);
+    const y = offsetY + rowIdx * (cellH + gap);
+
+    cells.push({
+      index: i,
+      col: colIdx,
+      row: rowIdx,
+      x,
+      y,
+      w: cellW,
+      h: cellH,
+      filled: i < total,
+    });
+  }
 
   const coveragePercent = Math.round(((total * printW * printH) / (sheetW * sheetH)) * 100);
 
@@ -54,6 +74,7 @@ export function calcTiling(printW, printH, sheetW, sheetH, count = null, options
     gridH,
     offsetX,
     offsetY,
+    cells,
     coveragePercent,
   };
 }
@@ -66,11 +87,11 @@ export function calcTiling(printW, printH, sheetW, sheetH, count = null, options
  * @param {Object} options
  */
 export function calcComboTiling(comboItems, sheetW, sheetH, options = {}) {
-  const margin = options.margin ?? 0.25;
-  const gap = options.gap ?? 0.05;
-  const usableW = sheetW - margin * 2;
+  const margin = options.margin !== undefined ? Math.max(0, options.margin) : 0.25;
+  const gap    = options.gap !== undefined ? Math.max(0, options.gap) : 0.05;
+  const usableW = Math.max(sheetW - margin * 2, 0.1);
 
-  const cells = [];
+  const rawCells = [];
   let currentY = 0;
   let totalArea = 0;
 
@@ -86,7 +107,7 @@ export function calcComboTiling(comboItems, sheetW, sheetH, options = {}) {
       const x = colIdx * (group.w + gap);
       const y = currentY + rowIdx * (group.h + gap);
 
-      cells.push({
+      rawCells.push({
         name: group.name,
         w: group.w,
         h: group.h,
@@ -97,22 +118,25 @@ export function calcComboTiling(comboItems, sheetW, sheetH, options = {}) {
       totalArea += group.w * group.h;
     }
 
-    currentY += rows * (group.h + gap) + 0.1; // small section separator
+    currentY += rows * (group.h + gap) + 0.08; // small section separator
   }
 
   // Find bounding box
-  const boundsW = cells.reduce((max, c) => Math.max(max, c.x + c.w), 0);
-  const boundsH = cells.reduce((max, c) => Math.max(max, c.y + c.h), 0);
+  const boundsW = rawCells.reduce((max, c) => Math.max(max, c.x + c.w), 0);
+  const boundsH = rawCells.reduce((max, c) => Math.max(max, c.y + c.h), 0);
 
   // Center on sheet
-  const offsetX = Math.max(0, (sheetW - boundsW) / 2);
-  const offsetY = Math.max(0, (sheetH - boundsH) / 2);
+  const offsetX = Math.max(margin, (sheetW - boundsW) / 2);
+  const offsetY = Math.max(margin, (sheetH - boundsH) / 2);
 
   // Offset all cell positions
-  cells.forEach(c => {
-    c.x += offsetX;
-    c.y += offsetY;
-  });
+  const cells = rawCells.map((c, idx) => ({
+    ...c,
+    index: idx,
+    x: c.x + offsetX,
+    y: c.y + offsetY,
+    filled: true,
+  }));
 
   const totalCopies = comboItems.reduce((sum, g) => sum + g.count, 0);
   const coveragePercent = Math.round((totalArea / (sheetW * sheetH)) * 100);

@@ -1,10 +1,10 @@
-﻿/**
+/**
  * printEngine.js
  * Handles exact physical print dimension calculations, dynamic @page rules injection,
- * combo package layouts, and high-DPI print execution.
+ * corner crop marks, ID Name Tag banners, multi-photo layouts, and print execution.
  */
 import { toast } from './toast.js';
-import { getCSSFilterString } from '../components/ImageAdjustments.js';
+import { getCSSFilterString, getCSSTransformString } from '../components/ImageAdjustments.js';
 
 let styleEl = null;
 
@@ -18,7 +18,7 @@ export function updatePrintPageCSS(sheetObj, orientation = 'portrait') {
     document.head.appendChild(styleEl);
   }
 
-  const widthIn = orientation === 'landscape' ? sheetObj.h : sheetObj.w;
+  const widthIn  = orientation === 'landscape' ? sheetObj.h : sheetObj.w;
   const heightIn = orientation === 'landscape' ? sheetObj.w : sheetObj.h;
 
   styleEl.textContent = `
@@ -37,8 +37,61 @@ export function updatePrintPageCSS(sheetObj, orientation = 'portrait') {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
+      .print-page {
+        width: ${widthIn}in !important;
+        height: ${heightIn}in !important;
+      }
     }
   `;
+}
+
+/**
+ * Generate Corner Crop Hairlines for Print
+ */
+function renderPrintCornerMarks() {
+  return `
+    <div style="position:absolute;top:0;left:0;width:5px;height:5px;border-top:0.4pt solid #000;border-left:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
+    <div style="position:absolute;top:0;right:0;width:5px;height:5px;border-top:0.4pt solid #000;border-right:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
+    <div style="position:absolute;bottom:0;left:0;width:5px;height:5px;border-bottom:0.4pt solid #000;border-left:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
+    <div style="position:absolute;bottom:0;right:0;width:5px;height:5px;border-bottom:0.4pt solid #000;border-right:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
+  `;
+}
+
+/**
+ * Generate ID Name Tag Banner for Print
+ */
+function renderPrintNameTag(nameTag) {
+  if (!nameTag || !nameTag.enabled || !nameTag.text) return '';
+  return `
+    <div style="
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border-top: 0.5pt solid #000000;
+      color: #000000;
+      text-align: center;
+      padding: 1.5pt 2pt;
+      font-family: 'Arial', sans-serif;
+      z-index: 5;
+    ">
+      <div style="font-size: 7pt; font-weight: bold; letter-spacing: 0.5px; line-height: 1.1;">
+        ${nameTag.text}
+      </div>
+      ${nameTag.sub ? `<div style="font-size: 5.5pt; opacity: 0.85; line-height: 1;">${nameTag.sub}</div>` : ''}
+    </div>
+  `;
+}
+
+function getBgStyle(bgPreset) {
+  switch (bgPreset) {
+    case 'white': return 'background-color: #ffffff;';
+    case 'blue':  return 'background-color: #1d4ed8;';
+    case 'red':   return 'background-color: #dc2626;';
+    case 'gray':  return 'background-color: #e2e8f0;';
+    default:      return 'background-color: #ffffff;';
+  }
 }
 
 /**
@@ -47,63 +100,57 @@ export function updatePrintPageCSS(sheetObj, orientation = 'portrait') {
 export function buildPrintHTML({
   sheetObj,
   tiling,
-  imageDataUrl,
+  photos = [],
+  activePhotoIndex = 0,
   fitMode = 'cover',
-  showCutGuides = true,
-  adjustments = {},
+  guideType = 'corners',
+  distributeMode = 'repeat',
 }) {
-  const cutGuideStyle = showCutGuides
-    ? 'border: 0.25pt dashed rgba(0, 0, 0, 0.4);'
+  const borderGuide = guideType === 'border'
+    ? 'border: 0.25pt dashed rgba(0, 0, 0, 0.45);'
     : 'border: none;';
 
-  const filterCSS = getCSSFilterString(adjustments);
-  const rot = adjustments.rotation ?? 0;
-  const rotTransform = rot !== 0 ? `transform: rotate(${rot}deg);` : '';
+  const cellsHTML = tiling.cells.map((cell, idx) => {
+    if (!cell.filled) return '';
 
-  if (tiling.isCombo) {
-    // Combo Layout
+    const photo = (distributeMode === 'distribute' && photos.length > 1)
+      ? photos[idx % photos.length]
+      : (photos[activePhotoIndex] || photos[0]);
+
+    const filterCSS    = getCSSFilterString(photo.adjustments);
+    const transformCSS = getCSSTransformString(photo.adjustments);
+    const bgCSS        = getBgStyle(photo.adjustments?.bgPreset);
+
     return `
-      <div class="print-page" style="
-        width: ${sheetObj.w}in;
-        height: ${sheetObj.h}in;
-        position: relative;
+      <div class="print-cell" style="
+        position: absolute;
+        left: ${cell.x}in;
+        top: ${cell.y}in;
+        width: ${cell.w}in;
+        height: ${cell.h}in;
         overflow: hidden;
-        margin: 0;
-        padding: 0;
-        background: #ffffff;
-        page-break-after: avoid;
-        page-break-inside: avoid;
+        box-sizing: border-box;
+        ${bgCSS}
+        ${borderGuide}
       ">
-        ${tiling.cells.map((cell, i) => `
-          <div class="print-cell" style="
-            width: ${cell.w}in;
-            height: ${cell.h}in;
-            position: absolute;
-            left: ${cell.x}in;
-            top: ${cell.y}in;
-            overflow: hidden;
-            box-sizing: border-box;
-            ${cutGuideStyle}
-          ">
-            <img src="${imageDataUrl}" style="
-              width: 100%;
-              height: 100%;
-              object-fit: ${fitMode};
-              display: block;
-              filter: ${filterCSS};
-              ${rotTransform}
-              image-rendering: -webkit-optimize-contrast;
-              image-rendering: high-quality;
-            " alt="print combo ${cell.name}" />
-          </div>
-        `).join('')}
+        ${guideType === 'corners' ? renderPrintCornerMarks() : ''}
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <img src="${photo.dataUrl}" style="
+            width: 100%;
+            height: 100%;
+            object-fit: ${fitMode};
+            display: block;
+            filter: ${filterCSS};
+            transform: ${transformCSS};
+            transform-origin: center center;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
+          " alt="photo ${idx + 1}" />
+        </div>
+        ${renderPrintNameTag(photo.adjustments?.nameTag)}
       </div>
     `;
-  }
-
-  // Standard Grid Layout
-  const usedCount = tiling.total;
-  const totalCells = tiling.cols * tiling.rows;
+  }).join('');
 
   return `
     <div class="print-page" style="
@@ -117,42 +164,7 @@ export function buildPrintHTML({
       page-break-after: avoid;
       page-break-inside: avoid;
     ">
-      <div class="print-grid" style="
-        display: grid;
-        grid-template-columns: repeat(${tiling.cols}, ${tiling.cellW}in);
-        grid-template-rows: repeat(${tiling.rows}, ${tiling.cellH}in);
-        gap: ${tiling.gap}in;
-        position: absolute;
-        top: ${tiling.offsetY}in;
-        left: ${tiling.offsetX}in;
-      ">
-        ${Array.from({ length: totalCells }, (_, i) => {
-          const filled = i < usedCount;
-          return `
-            <div class="print-cell" style="
-              width: ${tiling.cellW}in;
-              height: ${tiling.cellH}in;
-              overflow: hidden;
-              position: relative;
-              box-sizing: border-box;
-              ${cutGuideStyle}
-            ">
-              ${filled ? `
-                <img src="${imageDataUrl}" style="
-                  width: 100%;
-                  height: 100%;
-                  object-fit: ${fitMode};
-                  display: block;
-                  filter: ${filterCSS};
-                  ${rotTransform}
-                  image-rendering: -webkit-optimize-contrast;
-                  image-rendering: high-quality;
-                " alt="print copy ${i + 1}" />
-              ` : ''}
-            </div>
-          `;
-        }).join('')}
-      </div>
+      ${cellsHTML}
     </div>
   `;
 }
@@ -164,12 +176,13 @@ export function executePrint({
   printFrameEl,
   sheetObj,
   tiling,
-  imageDataUrl,
+  photos = [],
+  activePhotoIndex = 0,
   fitMode = 'cover',
-  showCutGuides = true,
-  adjustments = {},
+  guideType = 'corners',
+  distributeMode = 'repeat',
 }) {
-  if (!imageDataUrl) {
+  if (!photos || photos.length === 0) {
     toast('Please load a photo first before printing', 'error');
     return false;
   }
@@ -179,17 +192,28 @@ export function executePrint({
   printFrameEl.innerHTML = buildPrintHTML({
     sheetObj,
     tiling,
-    imageDataUrl,
+    photos,
+    activePhotoIndex,
     fitMode,
-    showCutGuides,
-    adjustments,
+    guideType,
+    distributeMode,
   });
 
-  const printImg = printFrameEl.querySelector('img');
-  if (printImg && !printImg.complete) {
-    printImg.onload = () => window.print();
+  const printImgs = Array.from(printFrameEl.querySelectorAll('img'));
+  const allLoaded = printImgs.every(img => img.complete);
+
+  if (!allLoaded) {
+    let loadedCount = 0;
+    printImgs.forEach(img => {
+      img.onload = img.onerror = () => {
+        loadedCount++;
+        if (loadedCount >= printImgs.length) {
+          window.print();
+        }
+      };
+    });
   } else {
-    setTimeout(() => window.print(), 50);
+    setTimeout(() => window.print(), 60);
   }
 
   return true;
@@ -207,6 +231,6 @@ export function initPrintShortcut(onTriggerPrint) {
   });
 
   window.addEventListener('afterprint', () => {
-    toast('Print dialog closed', 'info', 2000);
+    toast('Print job sent', 'info', 2000);
   });
 }

@@ -1,6 +1,7 @@
-﻿/**
- * Print size presets, sheet definitions, and ID Combo packages.
- * Dimensions are in inches with metric equivalents.
+/**
+ * sizes.js
+ * Print size presets, custom dimensions, sheet definitions, and ID Combo packages.
+ * Dimensions are stored in inches with metric equivalents.
  */
 
 export const SIZE_CATEGORIES = {
@@ -8,9 +9,10 @@ export const SIZE_CATEGORIES = {
   ID: 'ID & Passport',
   PHOTO: 'Standard Photo',
   LARGE: 'Large & Document',
+  CUSTOM: 'Custom Sizes',
 };
 
-export const SIZES = [
+export const BASE_SIZES = [
   // ── ID Combo Packages ───────────────────────────────────────────────────
   {
     id: 'combo_4x2_8x1',
@@ -82,18 +84,95 @@ export const SIZES = [
 ];
 
 export const SHEET_SIZES = {
-  a4:     { id: 'a4',     name: 'A4',         w: 8.27, h: 11.69, label: 'A4 (8.27 × 11.69 in)' },
-  letter: { id: 'letter', name: 'Letter',     w: 8.5,  h: 11,    label: 'Letter (8.5 × 11 in)' },
-  legal:  { id: 'legal',  name: 'Legal',      w: 8.5,  h: 14,    label: 'Legal (8.5 × 14 in)' },
-  folio:  { id: 'folio',  name: 'Long Bond',  w: 8.5,  h: 13,    label: 'Long / Folio (8.5 × 13 in)' },
+  a4:         { id: 'a4',         name: 'A4',         w: 8.27, h: 11.69, label: 'A4 (8.27 × 11.69 in)' },
+  letter:     { id: 'letter',     name: 'Letter',     w: 8.5,  h: 11,    label: 'Letter (8.5 × 11 in)' },
+  legal:      { id: 'legal',      name: 'Legal',      w: 8.5,  h: 14,    label: 'Legal (8.5 × 14 in)' },
+  folio:      { id: 'folio',      name: 'Long Bond',  w: 8.5,  h: 13,    label: 'Long / Folio (8.5 × 13 in)' },
+  sheet_4x6:  { id: 'sheet_4x6',  name: '4×6 Photo',  w: 4,    h: 6,     label: '4 × 6 in Photo Paper' },
+  sheet_5x7:  { id: 'sheet_5x7',  name: '5×7 Photo',  w: 5,    h: 7,     label: '5 × 7 in Photo Paper' },
 };
 
 export const DEFAULT_SIZE_ID = '4r';
 export const DEFAULT_SHEET   = 'a4';
 export const SCREEN_DPI      = 96;
 
+const CUSTOM_SIZES_KEY = 'autofit_custom_sizes';
+
+/**
+ * Unit conversion helpers
+ */
+export function unitToInches(val, unit) {
+  const num = parseFloat(val) || 0;
+  if (unit === 'cm') return num / 2.54;
+  if (unit === 'mm') return num / 25.4;
+  return num; // 'in'
+}
+
+export function inchesToUnit(inches, unit) {
+  if (unit === 'cm') return (inches * 2.54).toFixed(2);
+  if (unit === 'mm') return (inches * 25.4).toFixed(1);
+  return inches.toFixed(2);
+}
+
+/**
+ * Custom size persistence
+ */
+export function getCustomSizes() {
+  try {
+    const data = localStorage.getItem(CUSTOM_SIZES_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomSizes(list) {
+  try {
+    localStorage.setItem(CUSTOM_SIZES_KEY, JSON.stringify(list));
+  } catch (err) {
+    console.warn('Failed to save custom sizes:', err);
+  }
+}
+
+export function addCustomSize({ name, width, height, unit = 'in' }) {
+  const w = Math.round(unitToInches(width, unit) * 100) / 100;
+  const h = Math.round(unitToInches(height, unit) * 100) / 100;
+  const id = `custom_${Date.now()}`;
+  const customSize = {
+    id,
+    name: name || `${width}×${height} ${unit}`,
+    category: SIZE_CATEGORIES.CUSTOM,
+    isCustom: true,
+    w,
+    h,
+    label: `${w}" × ${h}" (${(w * 25.4).toFixed(0)} × ${(h * 25.4).toFixed(0)} mm)`,
+    rawUnit: unit,
+    rawW: width,
+    rawH: height,
+  };
+
+  const list = getCustomSizes();
+  list.unshift(customSize);
+  saveCustomSizes(list);
+  return customSize;
+}
+
+export function removeCustomSize(id) {
+  const list = getCustomSizes().filter(s => s.id !== id);
+  saveCustomSizes(list);
+  return list;
+}
+
+export function getAllSizes() {
+  const custom = getCustomSizes();
+  return [...custom, ...BASE_SIZES];
+}
+
+export const SIZES = getAllSizes();
+
 export function getSizeById(id) {
-  return SIZES.find(s => s.id === id) ?? SIZES.find(s => s.id === DEFAULT_SIZE_ID) ?? SIZES[0];
+  const all = getAllSizes();
+  return all.find(s => s.id === id) ?? all.find(s => s.id === DEFAULT_SIZE_ID) ?? all[0];
 }
 
 export function getSheetById(id) {

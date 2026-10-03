@@ -1,7 +1,6 @@
-﻿/**
+/**
  * DropZone component
- * Handles: drag-over visual feedback, drop event, click-to-browse
- * File input is kept OUTSIDE the drop zone div to avoid z-index click interception.
+ * Handles: drag-over visual feedback, multi-file drop event, click-to-browse
  */
 import { toast } from '../lib/toast.js';
 
@@ -9,26 +8,23 @@ export function DropZoneHTML() {
   return `
     <div class="drop-zone fade-in" id="drop-zone">
       <div class="drop-zone-icon">📸</div>
-      <div class="drop-zone-title">Drop your photo here</div>
+      <div class="drop-zone-title">Drop your photos here</div>
       <div class="drop-zone-sub">
         Press <kbd>Ctrl+V</kbd> to paste from clipboard<br/>
-        or drag a photo from anywhere
+        or drop single / multiple photos to tile
       </div>
       <div class="drop-zone-divider">or</div>
-      <label class="btn primary" for="file-input">Browse Files</label>
+      <label class="btn primary" for="file-input">Browse Photos</label>
     </div>
-    <input type="file" id="file-input" accept="image/*"
+    <input type="file" id="file-input" accept="image/*" multiple
            style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
   `;
 }
 
 /**
  * Wire drag-over / drag-leave / drop events onto the drop zone element.
- * Uses a counter to handle nested child elements triggering dragleave incorrectly.
- * @param {HTMLElement} el - the .drop-zone div
- * @param {Function} onFile - called with a File object when dropped
  */
-export function initDropZone(el, onFile) {
+export function initDropZone(el, onFiles) {
   let dragCounter = 0;
 
   el.addEventListener('dragenter', (e) => {
@@ -54,37 +50,47 @@ export function initDropZone(el, onFile) {
     e.preventDefault();
     dragCounter = 0;
     el.classList.remove('drag-over');
-    const file = getImageFromDataTransfer(e.dataTransfer);
-    if (file) {
-      onFile(file);
+    const files = getImagesFromDataTransfer(e.dataTransfer);
+    if (files.length > 0) {
+      onFiles(files);
     } else {
-      toast('No image found — try a JPG or PNG file', 'error');
+      toast('No valid image found — try JPG, PNG, or WEBP', 'error');
     }
   });
 }
 
 /**
- * Allow dropping anywhere on the window (useful when sheet preview is shown)
+ * Allow dropping anywhere on the window (even when sheet preview is active)
  */
-export function initWindowDrop(onFile) {
+export function initWindowDrop(onFiles) {
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {
     e.preventDefault();
-    const file = getImageFromDataTransfer(e.dataTransfer);
-    if (file) onFile(file);
+    const files = getImagesFromDataTransfer(e.dataTransfer);
+    if (files.length > 0) onFiles(files);
   });
 }
 
-function getImageFromDataTransfer(dt) {
-  if (!dt) return null;
-  const files = Array.from(dt.files ?? []);
-  const imgFile = files.find(f => f.type.startsWith('image/'));
-  if (imgFile) return imgFile;
-  const items = Array.from(dt.items ?? []);
-  for (const item of items) {
-    if (item.kind === 'file' && item.type.startsWith('image/')) {
-      return item.getAsFile();
+function getImagesFromDataTransfer(dt) {
+  if (!dt) return [];
+  const files = [];
+
+  if (dt.files && dt.files.length > 0) {
+    for (const f of dt.files) {
+      if (f.type && f.type.startsWith('image/')) {
+        files.push(f);
+      }
     }
   }
-  return null;
+
+  if (files.length === 0 && dt.items) {
+    for (const item of dt.items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+  }
+
+  return files;
 }
