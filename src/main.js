@@ -56,104 +56,111 @@ let state = {
   margin: 0.20, // inches
   gap: 0.05, // inches
   distributeMode: 'repeat', // 'repeat' | 'distribute'
+  zoomFactor: 1.0, // Canvas view zoom
 };
 
 // ─── App Shell HTML ───────────────────────────────────────────────────────────
 document.getElementById('app').innerHTML = `
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-brand-icon">🖨️</div>
-      <div class="sidebar-brand-text">
-        <span class="sidebar-brand-name">AutoFit</span>
-        <span class="sidebar-brand-sub">Studio & Print Sizer</span>
-      </div>
-    </div>
+  <!-- Left Pro Icon Dock -->
+  <aside class="pro-dock">
+    <div class="dock-brand" title="AutoFit Studio Pro">🖨️</div>
 
-    <div class="sidebar-section-label">Workspaces</div>
+    <nav class="dock-nav">
+      <button class="dock-btn active" id="dock-nav-photoprint" title="Photo Print Workspace">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2" y="2" width="16" height="16" rx="2"/>
+          <path d="M2 13l4-4 3 3 5-6 4 5"/>
+        </svg>
+      </button>
 
-    <a class="nav-item active" id="nav-photoprint" title="Standard Photo Grid Layouts">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="2" y="2" width="12" height="12" rx="1"/>
-        <path d="M2 11l3-3 2 2 4-5 3 4"/>
+      <button class="dock-btn" id="dock-nav-idstudio" title="ID & Passport Studio">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2" y="2" width="16" height="16" rx="3"/>
+          <circle cx="10" cy="7.5" r="3"/>
+          <path d="M4 17c0-2.8 2.7-4.5 6-4.5s6 1.7 6 4.5"/>
+        </svg>
+      </button>
+
+      <button class="dock-btn" id="dock-nav-customsizer" title="Custom Sizer (mm / cm / in)">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 17L17 3M8 3h9v9M12 17H3V8"/>
+        </svg>
+      </button>
+    </nav>
+
+    <div class="dock-spacer"></div>
+
+    <button class="dock-btn" id="dock-btn-shortcuts" title="Shortcuts & Calibration Guide (?)">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="10" cy="10" r="8"/>
+        <path d="M7.5 8a2.5 2.5 0 0 1 4.5 1.5c0 1.2-1 1.8-2 2.2V13"/>
+        <circle cx="10" cy="15.5" r="0.6" fill="currentColor"/>
       </svg>
-      Photo Print
-    </a>
+    </button>
 
-    <a class="nav-item" id="nav-idstudio" title="ID & Passport Combo Packages">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="2" y="2" width="12" height="12" rx="2"/>
-        <circle cx="8" cy="6" r="2.5"/>
-        <path d="M4 13c0-2.2 1.8-3.5 4-3.5s4 1.3 4 3.5"/>
-      </svg>
-      ID Studio
-    </a>
-
-    <a class="nav-item" id="nav-customsizer" title="Custom Dimension Sizer">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M2 14L14 2M6 2h8v8M10 14H2V6"/>
-      </svg>
-      Custom Sizer
-    </a>
-
-    <div class="sidebar-footer">v2.0 · 100% Offline</div>
+    <div class="dock-footer">AUTOFIT</div>
   </aside>
 
+  <!-- Main Center Shell -->
   <div class="main">
-    <div class="toolbar">
-      <span class="toolbar-title" id="page-title">Photo Print Sizer</span>
+    <header class="topbar">
+      <div class="topbar-breadcrumb">
+        <span class="breadcrumb-brand">AutoFit</span>
+        <span class="breadcrumb-divider">/</span>
+        <span class="breadcrumb-current" id="page-title">Photo Print Sizer</span>
+      </div>
 
-      <button class="btn ghost" id="btn-clear" disabled title="Clear loaded photos (Esc)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M3 3l10 10M13 3L3 13"/>
-        </svg>
-        Clear
-      </button>
+      <div class="status-badge" id="photo-status-badge">
+        <span class="status-badge-dot"></span>
+        <span id="photo-status-text">Ready</span>
+      </div>
 
-      <button class="btn ghost" id="btn-shortcuts" title="Shortcuts & Calibration Guide (?)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="8" cy="8" r="6"/>
-          <path d="M6 6.5a2 2 0 0 1 3.5 1.2c0 1-.8 1.5-1.5 1.8V10"/>
-          <circle cx="8" cy="12.5" r="0.5" fill="currentColor"/>
-        </svg>
-        Shortcuts
-      </button>
+      <div class="topbar-spacer"></div>
 
-      <div class="toolbar-spacer"></div>
+      <div class="topbar-actions">
+        <button class="btn ghost" id="btn-clear" disabled title="Clear loaded photos (Esc)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 3l10 10M13 3L3 13"/>
+          </svg>
+          Clear
+        </button>
 
-      <button class="btn secondary" id="btn-export-pdf" disabled title="Export 300 DPI Print-Ready PDF">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/>
-          <path d="M9 2v4h4M5 8h6M5 11h4"/>
-        </svg>
-        Export PDF
-      </button>
+        <button class="btn secondary" id="btn-export-pdf" disabled title="Export 300 DPI Print-Ready PDF">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/>
+            <path d="M9 2v4h4M5 8h6M5 11h4"/>
+          </svg>
+          Export PDF
+        </button>
 
-      <button class="btn secondary" id="btn-export-png" disabled title="Download 300 DPI High-Res Sheet PNG">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M8 2v8m-3-3l3 3 3-3"/>
-          <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/>
-        </svg>
-        Export PNG
-      </button>
+        <button class="btn secondary" id="btn-export-png" disabled title="Download 300 DPI High-Res Sheet PNG">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M8 2v8m-3-3l3 3 3-3"/>
+            <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/>
+          </svg>
+          Export PNG
+        </button>
 
-      <button class="btn primary" id="btn-print" disabled title="Print Sheet (Ctrl+P)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M4 6V2h8v4"/>
-          <rect x="2" y="6" width="12" height="6" rx="1"/>
-          <path d="M4 10v4h8v-4"/>
-        </svg>
-        Print
-      </button>
-    </div>
+        <button class="btn primary" id="btn-print" disabled title="Print Sheet (Ctrl+P)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 6V2h8v4"/>
+            <rect x="2" y="6" width="12" height="6" rx="1"/>
+            <path d="M4 10v4h8v-4"/>
+          </svg>
+          Print Sheet
+        </button>
+      </div>
+    </header>
 
     <div class="workspace">
+      <!-- Interactive Studio Canvas -->
       <div class="canvas-area" id="canvas-area">
         ${DropZoneHTML()}
         ${SheetPreviewHTML()}
       </div>
 
-      <aside class="right-panel" id="right-panel">
-        <!-- Tabbed Header -->
+      <!-- Right Inspector Panel -->
+      <aside class="inspector" id="right-panel">
         <div class="panel-tabs-header" id="panel-tabs-header">
           <button class="panel-main-tab active" data-tab="layout">
             <span>📐</span> Layout
@@ -166,7 +173,6 @@ document.getElementById('app').innerHTML = `
           </button>
         </div>
 
-        <!-- Tab Content Panes -->
         <div class="panel-tab-content">
           <!-- ── TAB 1: LAYOUT & SIZES ── -->
           <div class="tab-pane active" id="pane-layout">
@@ -231,7 +237,6 @@ const btnPrint        = document.getElementById('btn-print');
 const btnExportPng    = document.getElementById('btn-export-png');
 const btnExportPdf    = document.getElementById('btn-export-pdf');
 const btnClear        = document.getElementById('btn-clear');
-const btnShortcuts    = document.getElementById('btn-shortcuts');
 const sheetWrap       = document.getElementById('sheet-wrap');
 const sheetSelect     = document.getElementById('sheet-select');
 const countDisplay    = document.getElementById('count-display');
@@ -242,13 +247,20 @@ const printFrame      = document.getElementById('print-frame');
 const rightPanel      = document.getElementById('right-panel');
 const panelTabsHeader = document.getElementById('panel-tabs-header');
 const pageTitle       = document.getElementById('page-title');
+const photoStatusText = document.getElementById('photo-status-text');
 
-// Sidebar Nav Items
-const navPhotoPrint   = document.getElementById('nav-photoprint');
-const navIdStudio     = document.getElementById('nav-idstudio');
-const navCustomSizer  = document.getElementById('nav-customsizer');
+// Dock Nav Buttons
+const dockNavPhotoPrint  = document.getElementById('dock-nav-photoprint');
+const dockNavIdStudio    = document.getElementById('dock-nav-idstudio');
+const dockNavCustomSizer = document.getElementById('dock-nav-customsizer');
+const dockBtnShortcuts   = document.getElementById('dock-btn-shortcuts');
 
-// ─── Right Panel Tab Switching ────────────────────────────────────────────────
+// Floating Canvas Zoom Controls
+const btnZoomIn   = document.getElementById('btn-zoom-in');
+const btnZoomOut  = document.getElementById('btn-zoom-out');
+const btnZoomFit  = document.getElementById('btn-zoom-fit');
+
+// ─── Tab Switching ────────────────────────────────────────────────────────────
 function switchRightPanelTab(tabName) {
   if (!panelTabsHeader) return;
   panelTabsHeader.querySelectorAll('.panel-main-tab').forEach(b => {
@@ -318,10 +330,17 @@ function updatePreview() {
     fitMode: state.fitMode,
     guideType: state.guideType,
     distributeMode: state.distributeMode,
+    zoomFactor: state.zoomFactor,
   });
 
   updateCountDisplay();
   wireQueueEvents();
+
+  if (photoStatusText) {
+    photoStatusText.textContent = state.photos.length === 1
+      ? `${state.photos[0].dimensions.width}×${state.photos[0].dimensions.height}`
+      : `${state.photos.length} Photos in Queue`;
+  }
 }
 
 // Wire Multi-photo Queue Events
@@ -374,6 +393,26 @@ function removePhotoFromQueue(index) {
   toast('Photo removed from sheet', 'info');
 }
 
+// ─── Floating Zoom Controls Wiring ────────────────────────────────────────────
+if (btnZoomIn) {
+  btnZoomIn.addEventListener('click', () => {
+    state.zoomFactor = Math.min(2.5, state.zoomFactor + 0.15);
+    updatePreview();
+  });
+}
+if (btnZoomOut) {
+  btnZoomOut.addEventListener('click', () => {
+    state.zoomFactor = Math.max(0.4, state.zoomFactor - 0.15);
+    updatePreview();
+  });
+}
+if (btnZoomFit) {
+  btnZoomFit.addEventListener('click', () => {
+    state.zoomFactor = 1.0;
+    updatePreview();
+  });
+}
+
 // ─── Size Selector Initialization ─────────────────────────────────────────────
 const sizeSelector = initSizeSelector(rightPanel, (newSizeId) => {
   state.sizeId = newSizeId;
@@ -409,8 +448,8 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
 
 // ─── Shortcuts Modal Initialization ───────────────────────────────────────────
 const shortcutsModal = initShortcutsModal(document.body);
-if (btnShortcuts) {
-  btnShortcuts.addEventListener('click', () => shortcutsModal.open());
+if (dockBtnShortcuts) {
+  dockBtnShortcuts.addEventListener('click', () => shortcutsModal.open());
 }
 
 // ─── History Panel Initialization ─────────────────────────────────────────────
@@ -451,7 +490,6 @@ async function loadFiles(fileList) {
 
       state.photos.push(newPhoto);
 
-      // Save to recent history
       saveToHistory({
         id: newPhoto.id,
         name,
@@ -514,6 +552,7 @@ function clearPhotos() {
   state.photos = [];
   state.activePhotoIndex = 0;
   state.count = null;
+  state.zoomFactor = 1.0;
 
   dropZone.style.display = '';
   sheetWrap.classList.remove('visible');
@@ -521,6 +560,7 @@ function clearPhotos() {
   btnExportPng.disabled = true;
   btnExportPdf.disabled = true;
   btnClear.disabled = true;
+  if (photoStatusText) photoStatusText.textContent = 'Ready';
   printSettingsController.updatePhotoCount(0);
   updateCountDisplay();
 }
@@ -585,34 +625,34 @@ function handleExportPDF() {
   });
 }
 
-// ─── Sidebar Navigation Wiring ────────────────────────────────────────────────
-if (navPhotoPrint) {
-  navPhotoPrint.addEventListener('click', () => {
-    navPhotoPrint.classList.add('active');
-    navIdStudio?.classList.remove('active');
-    navCustomSizer?.classList.remove('active');
+// ─── Pro Dock Navigation Wiring ───────────────────────────────────────────────
+if (dockNavPhotoPrint) {
+  dockNavPhotoPrint.addEventListener('click', () => {
+    dockNavPhotoPrint.classList.add('active');
+    dockNavIdStudio?.classList.remove('active');
+    dockNavCustomSizer?.classList.remove('active');
     pageTitle.textContent = 'Photo Print Sizer';
     sizeSelector.setSelected('4r');
     switchRightPanelTab('layout');
   });
 }
 
-if (navIdStudio) {
-  navIdStudio.addEventListener('click', () => {
-    navIdStudio.classList.add('active');
-    navPhotoPrint?.classList.remove('active');
-    navCustomSizer?.classList.remove('active');
+if (dockNavIdStudio) {
+  dockNavIdStudio.addEventListener('click', () => {
+    dockNavIdStudio.classList.add('active');
+    dockNavPhotoPrint?.classList.remove('active');
+    dockNavCustomSizer?.classList.remove('active');
     pageTitle.textContent = 'ID & Passport Studio';
     sizeSelector.setSelected('combo_4x2_8x1');
     switchRightPanelTab('adjust');
   });
 }
 
-if (navCustomSizer) {
-  navCustomSizer.addEventListener('click', () => {
-    navCustomSizer.classList.add('active');
-    navPhotoPrint?.classList.remove('active');
-    navIdStudio?.classList.remove('active');
+if (dockNavCustomSizer) {
+  dockNavCustomSizer.addEventListener('click', () => {
+    dockNavCustomSizer.classList.add('active');
+    dockNavPhotoPrint?.classList.remove('active');
+    dockNavIdStudio?.classList.remove('active');
     pageTitle.textContent = 'Custom Dimension Sizer';
     switchRightPanelTab('layout');
     const customTabBtn = rightPanel.querySelector(`.cat-tab[data-cat="${SIZE_CATEGORIES.CUSTOM}"]`);

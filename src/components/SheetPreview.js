@@ -1,7 +1,7 @@
 /**
  * SheetPreview component
  * Renders live sheet layout with tiled images, corner crop marks, ID Name Tag banners,
- * passport oval guidelines, multi-photo queue, and image transforms.
+ * passport oval guidelines, multi-photo queue, and floating canvas zoom controls.
  */
 import { fitScale } from '../lib/tiler.js';
 import { getCSSFilterString, getCSSTransformString } from './ImageAdjustments.js';
@@ -9,23 +9,27 @@ import { getCSSFilterString, getCSSTransformString } from './ImageAdjustments.js
 export function SheetPreviewHTML() {
   return `
     <div class="sheet-wrap" id="sheet-wrap">
-      <!-- Multi-Photo Queue Drawer / Header -->
+      <!-- Floating Multi-Photo Queue Bar -->
       <div class="photo-queue-bar" id="photo-queue-bar" style="display:none;">
-        <span class="queue-title">Loaded Photos:</span>
+        <span class="queue-title">Photos:</span>
         <div class="queue-list" id="queue-list"></div>
-        <button class="btn ghost btn-add-more-photos" id="btn-add-more-photos" title="Add another photo to queue">
+        <button class="btn-add-more-photos" id="btn-add-more-photos" title="Add another photo to sheet queue">
           <span>➕</span> Add Photo
         </button>
       </div>
 
-      <div class="sheet-viewport">
+      <div class="sheet-viewport" id="sheet-viewport">
         <div class="sheet" id="sheet">
           <div class="sheet-grid" id="sheet-grid"></div>
         </div>
       </div>
 
-      <div class="sheet-toolbar">
-        <div class="sheet-info" id="sheet-info"></div>
+      <!-- Floating Canvas Zoom & View Controls -->
+      <div class="floating-canvas-controls" id="floating-canvas-controls">
+        <button class="canvas-ctrl-btn" id="btn-zoom-out" title="Zoom Out (−)">−</button>
+        <span class="canvas-zoom-val" id="canvas-zoom-val">Fit</span>
+        <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">+</button>
+        <button class="canvas-ctrl-btn" id="btn-zoom-fit" title="Fit Sheet to Viewport">⤢</button>
       </div>
     </div>
   `;
@@ -93,12 +97,13 @@ export function renderSheetPreview({
   fitMode = 'cover',
   guideType = 'corners',
   distributeMode = 'repeat',
+  zoomFactor = 1.0,
 }) {
   const sheetEl   = containerEl.querySelector('#sheet');
   const gridEl    = containerEl.querySelector('#sheet-grid');
-  const infoEl    = containerEl.querySelector('#sheet-info');
   const queueBar  = containerEl.querySelector('#photo-queue-bar');
   const queueList = containerEl.querySelector('#queue-list');
+  const zoomValEl = containerEl.querySelector('#canvas-zoom-val');
   const canvasArea = containerEl.closest('.canvas-area') || containerEl;
 
   if (!sheetEl || !gridEl || photos.length === 0) return;
@@ -120,7 +125,12 @@ export function renderSheetPreview({
 
   const cw = canvasArea.clientWidth || 800;
   const ch = canvasArea.clientHeight || 600;
-  const scale = fitScale(sheetObj.w, sheetObj.h, cw, ch, 110);
+  const baseScale = fitScale(sheetObj.w, sheetObj.h, cw, ch, 110);
+  const scale = baseScale * zoomFactor;
+
+  if (zoomValEl) {
+    zoomValEl.textContent = zoomFactor === 1.0 ? 'Fit' : `${Math.round(zoomFactor * 100)}%`;
+  }
 
   const sheetPxW = Math.round(sheetObj.w * 96 * scale);
   const sheetPxH = Math.round(sheetObj.h * 96 * scale);
@@ -128,7 +138,6 @@ export function renderSheetPreview({
   sheetEl.style.width = `${sheetPxW}px`;
   sheetEl.style.height = `${sheetPxH}px`;
 
-  // Helper to pick photo for cell
   function getPhotoForCell(cellIndex) {
     if (distributeMode === 'distribute' && photos.length > 1) {
       return photos[cellIndex % photos.length];
@@ -169,7 +178,7 @@ export function renderSheetPreview({
         ">
           ${guideType === 'corners' ? renderCornerMarksHTML() : ''}
           ${photo.adjustments?.showOval ? renderOvalGuideHTML() : ''}
-          <div class="cell-img-wrap" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
             <img src="${photo.dataUrl}" alt="combo ${cell.name}" style="
               width: 100%;
               height: 100%;
@@ -184,15 +193,6 @@ export function renderSheetPreview({
         </div>
       `;
     }).join('');
-
-    if (infoEl) {
-      infoEl.innerHTML = `
-        <span>🪪 <b>${sizeObj.name}</b></span> · 
-        <span><b>${tilingResult.total}</b> photos</span> · 
-        <span>Sheet: ${sheetObj.name}</span> · 
-        <span>${tilingResult.coveragePercent}% yield</span>
-      `;
-    }
   } else {
     // ── Standard Grid Layout ─────────────────────────────────────────────────
     gridEl.style.cssText = `
@@ -217,9 +217,7 @@ export function renderSheetPreview({
             top: ${cellPxY}px;
             width: ${cellPxW}px;
             height: ${cellPxH}px;
-          ">
-            <div class="cell-placeholder"></div>
-          </div>
+          "></div>
         `;
       }
 
@@ -240,7 +238,7 @@ export function renderSheetPreview({
         ">
           ${guideType === 'corners' ? renderCornerMarksHTML() : ''}
           ${photo.adjustments?.showOval ? renderOvalGuideHTML() : ''}
-          <div class="cell-img-wrap" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
             <img src="${photo.dataUrl}" alt="copy ${cell.index + 1}" style="
               width: 100%;
               height: 100%;
@@ -254,16 +252,5 @@ export function renderSheetPreview({
         </div>
       `;
     }).join('');
-
-    if (infoEl) {
-      const rotNote = tilingResult.rotated ? ' (Rotated)' : '';
-      infoEl.innerHTML = `
-        <span>${tilingResult.cols} × ${tilingResult.rows} grid</span> · 
-        <span><b>${tilingResult.total}</b> copies</span> · 
-        <span>${sizeObj.name}${rotNote} on ${sheetObj.name}</span> · 
-        <span>Margin: ${tilingResult.margin}" · Gap: ${tilingResult.gap}"</span> · 
-        <span>${tilingResult.coveragePercent}% yield</span>
-      `;
-    }
   }
 }
