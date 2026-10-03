@@ -30,6 +30,7 @@ export function SheetPreviewHTML() {
         <span class="canvas-zoom-val" id="canvas-zoom-val">Fit</span>
         <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">+</button>
         <button class="canvas-ctrl-btn" id="btn-zoom-fit" title="Fit Sheet to Viewport">⤢</button>
+        <button class="canvas-ctrl-btn" id="btn-zen-mode" title="Toggle Fullscreen Zen Mode (\\ or F)">⛶</button>
       </div>
     </div>
   `;

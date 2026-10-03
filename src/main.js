@@ -50,6 +50,7 @@ let state = {
   activePhotoIndex: 0,
   sizeId: DEFAULT_SIZE_ID,
   sheetId: DEFAULT_SHEET,
+  orientation: 'portrait', // 'portrait' | 'landscape'
   count: null, // null = auto max fit
   fitMode: 'cover',
   guideType: 'corners', // 'corners' | 'border' | 'none'
@@ -62,7 +63,7 @@ let state = {
 // ─── App Shell HTML ───────────────────────────────────────────────────────────
 document.getElementById('app').innerHTML = `
   <!-- Left Pro Icon Dock -->
-  <aside class="pro-dock">
+  <aside class="pro-dock" id="pro-dock">
     <div class="dock-brand" title="AutoFit Studio Pro">🖨️</div>
 
     <nav class="dock-nav">
@@ -104,6 +105,14 @@ document.getElementById('app').innerHTML = `
   <!-- Main Center Shell -->
   <div class="main">
     <header class="topbar">
+      <!-- Left Sidebar Collapse Toggle Button -->
+      <button class="btn-panel-toggle active" id="btn-toggle-dock" title="Toggle Sidebar Dock (Ctrl+[ or \\)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="1" y="2" width="14" height="12" rx="2"/>
+          <path d="M5 2v12"/>
+        </svg>
+      </button>
+
       <div class="topbar-breadcrumb">
         <span class="breadcrumb-brand">AutoFit</span>
         <span class="breadcrumb-divider">/</span>
@@ -148,6 +157,14 @@ document.getElementById('app').innerHTML = `
             <path d="M4 10v4h8v-4"/>
           </svg>
           Print Sheet
+        </button>
+
+        <!-- Right Inspector Collapse Toggle Button -->
+        <button class="btn-panel-toggle active" id="btn-toggle-inspector" title="Toggle Inspector Panel (Ctrl+] or \\)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="1" y="2" width="14" height="12" rx="2"/>
+            <path d="M11 2v12"/>
+          </svg>
         </button>
       </div>
     </header>
@@ -203,6 +220,7 @@ document.getElementById('app').innerHTML = `
             </div>
 
             ${PrintSettingsHTML({
+              orientation: state.orientation,
               fitMode: state.fitMode,
               guideType: state.guideType,
               margin: state.margin,
@@ -249,20 +267,65 @@ const panelTabsHeader = document.getElementById('panel-tabs-header');
 const pageTitle       = document.getElementById('page-title');
 const photoStatusText = document.getElementById('photo-status-text');
 
+// Dock & Inspector Elements
+const dockEl             = document.getElementById('pro-dock');
+const btnToggleDock      = document.getElementById('btn-toggle-dock');
+const btnToggleInspector = document.getElementById('btn-toggle-inspector');
+
 // Dock Nav Buttons
 const dockNavPhotoPrint  = document.getElementById('dock-nav-photoprint');
 const dockNavIdStudio    = document.getElementById('dock-nav-idstudio');
 const dockNavCustomSizer = document.getElementById('dock-nav-customsizer');
 const dockBtnShortcuts   = document.getElementById('dock-btn-shortcuts');
 
-// Floating Canvas Zoom Controls
+// Floating Canvas Zoom & Zen Controls
 const btnZoomIn   = document.getElementById('btn-zoom-in');
 const btnZoomOut  = document.getElementById('btn-zoom-out');
 const btnZoomFit  = document.getElementById('btn-zoom-fit');
+const btnZenMode  = document.getElementById('btn-zen-mode');
+
+// ─── Dual Collapsible Panels & Zen View ───────────────────────────────────────
+function toggleDock() {
+  dockEl.classList.toggle('collapsed');
+  btnToggleDock.classList.toggle('active', !dockEl.classList.contains('collapsed'));
+  setTimeout(() => updatePreview(), 240);
+}
+
+function toggleInspector() {
+  rightPanel.classList.toggle('collapsed');
+  btnToggleInspector.classList.toggle('active', !rightPanel.classList.contains('collapsed'));
+  setTimeout(() => updatePreview(), 240);
+}
+
+function toggleZenMode() {
+  const isZen = dockEl.classList.contains('collapsed') && rightPanel.classList.contains('collapsed');
+  if (isZen) {
+    dockEl.classList.remove('collapsed');
+    rightPanel.classList.remove('collapsed');
+    btnToggleDock.classList.add('active');
+    btnToggleInspector.classList.add('active');
+    toast('Restored Studio Panels', 'info', 1500);
+  } else {
+    dockEl.classList.add('collapsed');
+    rightPanel.classList.add('collapsed');
+    btnToggleDock.classList.remove('active');
+    btnToggleInspector.classList.remove('active');
+    toast('Zen Fullscreen Mode (Press \\ to restore)', 'info', 2500);
+  }
+  setTimeout(() => updatePreview(), 240);
+}
+
+btnToggleDock?.addEventListener('click', toggleDock);
+btnToggleInspector?.addEventListener('click', toggleInspector);
+btnZenMode?.addEventListener('click', toggleZenMode);
 
 // ─── Tab Switching ────────────────────────────────────────────────────────────
 function switchRightPanelTab(tabName) {
   if (!panelTabsHeader) return;
+  // If inspector is collapsed, auto-open it
+  if (rightPanel.classList.contains('collapsed')) {
+    toggleInspector();
+  }
   panelTabsHeader.querySelectorAll('.panel-main-tab').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tabName);
   });
@@ -278,9 +341,17 @@ if (panelTabsHeader) {
 }
 
 // ─── Tiling Calculator ────────────────────────────────────────────────────────
+function getSheetObject() {
+  const baseSheet = getSheetById(state.sheetId);
+  const isLandscape = state.orientation === 'landscape';
+  const sheetW = isLandscape ? Math.max(baseSheet.w, baseSheet.h) : Math.min(baseSheet.w, baseSheet.h);
+  const sheetH = isLandscape ? Math.min(baseSheet.w, baseSheet.h) : Math.max(baseSheet.w, baseSheet.h);
+  return { ...baseSheet, w: sheetW, h: sheetH, name: `${baseSheet.name} (${state.orientation})` };
+}
+
 function getTiling() {
   const sizeObj  = getSizeById(state.sizeId);
-  const sheetObj = getSheetById(state.sheetId);
+  const sheetObj = getSheetObject();
 
   if (sizeObj.isCombo) {
     return calcComboTiling(sizeObj.comboItems, sheetObj.w, sheetObj.h, {
@@ -317,7 +388,7 @@ function updatePreview() {
   if (state.photos.length === 0) return;
 
   const sizeObj  = getSizeById(state.sizeId);
-  const sheetObj = getSheetById(state.sheetId);
+  const sheetObj = getSheetObject();
   const tiling   = getTiling();
 
   renderSheetPreview({
@@ -431,6 +502,10 @@ const imageAdjustmentsController = initImageAdjustments(rightPanel, (newAdjustme
 
 // ─── Print Settings Initialization ───────────────────────────────────────────
 const printSettingsController = initPrintSettings(rightPanel, (settings) => {
+  if (settings.orientation !== undefined) {
+    state.orientation = settings.orientation;
+    state.count = null;
+  }
   if (settings.fitMode !== undefined) state.fitMode = settings.fitMode;
   if (settings.guideType !== undefined) state.guideType = settings.guideType;
   if (settings.margin !== undefined) state.margin = settings.margin;
@@ -438,7 +513,9 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   if (settings.distributeMode !== undefined) state.distributeMode = settings.distributeMode;
 
   if (state.photos.length > 0) updatePreview();
+  updateCountDisplay();
 }, {
+  orientation: state.orientation,
   fitMode: state.fitMode,
   guideType: state.guideType,
   margin: state.margin,
@@ -570,7 +647,7 @@ function handlePrint() {
   if (state.photos.length === 0) return;
 
   const sizeObj  = getSizeById(state.sizeId);
-  const sheetObj = getSheetById(state.sheetId);
+  const sheetObj = getSheetObject();
   const tiling   = getTiling();
 
   toast('Opening print dialog — remember to set Margins: None & Scale: 100%', 'info', 4000);
@@ -591,7 +668,7 @@ function handleExportPNG() {
   if (state.photos.length === 0) return;
 
   const sizeObj  = getSizeById(state.sizeId);
-  const sheetObj = getSheetById(state.sheetId);
+  const sheetObj = getSheetObject();
   const tiling   = getTiling();
 
   exportHighResPNG({
@@ -610,7 +687,7 @@ function handleExportPDF() {
   if (state.photos.length === 0) return;
 
   const sizeObj  = getSizeById(state.sizeId);
-  const sheetObj = getSheetById(state.sheetId);
+  const sheetObj = getSheetObject();
   const tiling   = getTiling();
 
   exportHighResPDF({
@@ -659,6 +736,8 @@ if (dockNavCustomSizer) {
     if (customTabBtn) customTabBtn.click();
     const addCard = rightPanel.querySelector('#card-add-custom');
     if (addCard) addCard.click();
+    const addItem = rightPanel.querySelector('#item-add-custom');
+    if (addItem) addItem.click();
   });
 }
 
@@ -677,6 +756,27 @@ fileInput.addEventListener('change', () => {
 // Global Keyboard Shortcuts
 document.addEventListener('keydown', (e) => {
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+  // Zen Mode toggle with \ or F
+  if (e.key === '\\' || e.key === 'f' || e.key === 'F') {
+    e.preventDefault();
+    toggleZenMode();
+    return;
+  }
+
+  // Ctrl+[ for Left Dock
+  if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+    e.preventDefault();
+    toggleDock();
+    return;
+  }
+
+  // Ctrl+] for Right Inspector
+  if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+    e.preventDefault();
+    toggleInspector();
+    return;
+  }
 
   if ((e.ctrlKey || e.metaKey) && (e.key === 'o' || e.key === 'O')) {
     e.preventDefault();
