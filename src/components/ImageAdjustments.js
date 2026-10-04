@@ -1,7 +1,8 @@
 /**
  * ImageAdjustments component
- * Controls for brightness, contrast, saturation, B&W (grayscale), rotation,
- * mirror/flip, pan & zoom framing, ID Name Tag banner, and ID background presets.
+ * Controls for brightness, contrast, saturation, B&W (grayscale), 90° rotation,
+ * fine angle tilt straighten (-15° to +15°), mirror/flip, pan & zoom framing,
+ * ID Name Tag banner, and ID background presets.
  */
 
 export function ImageAdjustmentsHTML(state = {}) {
@@ -10,6 +11,7 @@ export function ImageAdjustmentsHTML(state = {}) {
   const saturation = state.saturation ?? 100;
   const isBW       = state.isBW ?? false;
   const rotation   = state.rotation ?? 0;
+  const tilt       = state.tilt ?? 0;
   const flipH      = state.flipH ?? false;
   const flipV      = state.flipV ?? false;
   const zoom       = state.zoom ?? 1;
@@ -30,10 +32,14 @@ export function ImageAdjustmentsHTML(state = {}) {
         <button class="btn-adjust-reset" id="btn-framing-reset" title="Reset framing">Reset</button>
       </div>
 
+      <div style="font-size:10.5px;color:var(--accent-hover);margin-bottom:4px;">
+        💡 Tip: You can also click & drag directly on the photo to position!
+      </div>
+
       <div class="adjust-controls-grid">
         <div class="adjust-slider-group">
           <div class="slider-header">
-            <span>Zoom</span>
+            <span>Zoom Scale</span>
             <span class="slider-val" id="val-zoom">${Math.round(zoom * 100)}%</span>
           </div>
           <input type="range" id="slider-zoom" min="100" max="250" value="${Math.round(zoom * 100)}" step="5" />
@@ -44,7 +50,7 @@ export function ImageAdjustmentsHTML(state = {}) {
             <span>Position Y (Vertical)</span>
             <span class="slider-val" id="val-pan-y">${panY > 0 ? `+${panY}%` : `${panY}%`}</span>
           </div>
-          <input type="range" id="slider-pan-y" min="-60" max="60" value="${panY}" step="2" />
+          <input type="range" id="slider-pan-y" min="-60" max="60" value="${panY}" step="1" />
         </div>
 
         <div class="adjust-slider-group">
@@ -52,7 +58,7 @@ export function ImageAdjustmentsHTML(state = {}) {
             <span>Position X (Horizontal)</span>
             <span class="slider-val" id="val-pan-x">${panX > 0 ? `+${panX}%` : `${panX}%`}</span>
           </div>
-          <input type="range" id="slider-pan-x" min="-60" max="60" value="${panX}" step="2" />
+          <input type="range" id="slider-pan-x" min="-60" max="60" value="${panX}" step="1" />
         </div>
 
         <label class="setting-checkbox-row" style="margin-top:4px">
@@ -63,9 +69,9 @@ export function ImageAdjustmentsHTML(state = {}) {
 
       <div class="panel-divider"></div>
 
-      <!-- ── SECTION B: Rotation & Mirror ── -->
+      <!-- ── SECTION B: Rotation, Fine Tilt & Mirror ── -->
       <div class="panel-section-header">
-        <div class="panel-label">🔄 Orientation & Mirror</div>
+        <div class="panel-label">🔄 Orientation & Fine Straighten</div>
       </div>
 
       <div class="adjust-actions-row">
@@ -81,6 +87,18 @@ export function ImageAdjustmentsHTML(state = {}) {
         <button class="adjust-action-btn ${flipV ? 'active' : ''}" id="btn-flip-v" title="Flip Vertical">
           <span>⇅</span> Flip V
         </button>
+      </div>
+
+      <!-- Fine Angle Tilt Straighten Slider -->
+      <div class="adjust-slider-group" style="margin-top:8px;">
+        <div class="slider-header">
+          <span>Fine Angle Straighten</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="slider-val" id="val-tilt">${tilt > 0 ? `+${tilt.toFixed(1)}°` : `${tilt.toFixed(1)}°`}</span>
+            <button class="btn-adjust-reset" id="btn-tilt-reset" title="Reset tilt to 0°" style="padding:1px 5px;font-size:10px">0° Reset</button>
+          </div>
+        </div>
+        <input type="range" id="slider-tilt" min="-15" max="15" step="0.5" value="${tilt}" />
       </div>
 
       <div class="panel-divider"></div>
@@ -177,10 +195,12 @@ export function getCSSFilterString(state = {}) {
 }
 
 /**
- * Generate CSS Transform string (Pan, Zoom, Rotation, Flip)
+ * Generate CSS Transform string (Pan, Zoom, 90° Rotation + Fine Tilt, Flip)
  */
 export function getCSSTransformString(state = {}) {
   const rot   = state.rotation ?? 0;
+  const tilt  = state.tilt ?? 0;
+  const totalAngle = rot + tilt;
   const flipH = state.flipH ? -1 : 1;
   const flipV = state.flipV ? -1 : 1;
   const zoom  = state.zoom ?? 1;
@@ -191,8 +211,8 @@ export function getCSSTransformString(state = {}) {
   if (panX !== 0 || panY !== 0) {
     parts.push(`translate(${panX}%, ${panY}%)`);
   }
-  if (rot !== 0) {
-    parts.push(`rotate(${rot}deg)`);
+  if (totalAngle !== 0) {
+    parts.push(`rotate(${totalAngle}deg)`);
   }
   if (flipH !== 1 || flipV !== 1) {
     parts.push(`scale(${flipH}, ${flipV})`);
@@ -214,6 +234,7 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
     saturation: 100,
     isBW: false,
     rotation: 0,
+    tilt: 0,
     flipH: false,
     flipV: false,
     zoom: 1,
@@ -238,6 +259,9 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
   const btnBW        = containerEl.querySelector('#btn-toggle-bw');
   const btnRotateCW  = containerEl.querySelector('#btn-rotate-cw');
   const btnRotateCCW = containerEl.querySelector('#btn-rotate-ccw');
+  const sliderTilt   = containerEl.querySelector('#slider-tilt');
+  const valTilt      = containerEl.querySelector('#val-tilt');
+  const btnTiltReset = containerEl.querySelector('#btn-tilt-reset');
   const btnFlipH     = containerEl.querySelector('#btn-flip-h');
   const btnFlipV     = containerEl.querySelector('#btn-flip-v');
   const btnReset     = containerEl.querySelector('#btn-adjust-reset');
@@ -338,7 +362,7 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
     });
   }
 
-  // Orientation
+  // Orientation & Fine Tilt
   if (btnRotateCW) {
     btnRotateCW.addEventListener('click', () => {
       state.rotation = (state.rotation + 90) % 360;
@@ -350,6 +374,21 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
     btnRotateCCW.addEventListener('click', () => {
       state.rotation = (state.rotation - 90 + 360) % 360;
       btnRotateCW.innerHTML = `<span>↻</span> +90° (${state.rotation}°)`;
+      notify();
+    });
+  }
+  if (sliderTilt) {
+    sliderTilt.addEventListener('input', () => {
+      state.tilt = parseFloat(sliderTilt.value);
+      valTilt.textContent = state.tilt > 0 ? `+${state.tilt.toFixed(1)}°` : `${state.tilt.toFixed(1)}°`;
+      notify();
+    });
+  }
+  if (btnTiltReset) {
+    btnTiltReset.addEventListener('click', () => {
+      state.tilt = 0;
+      if (sliderTilt) sliderTilt.value = 0;
+      if (valTilt) valTilt.textContent = '0.0°';
       notify();
     });
   }
@@ -437,8 +476,45 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
 
   return {
     getState: () => ({ ...state }),
+    updatePan: (newPanX, newPanY) => {
+      state.panX = Math.round(newPanX);
+      state.panY = Math.round(newPanY);
+      if (sliderPanX) {
+        sliderPanX.value = state.panX;
+        valPanX.textContent = `${state.panX > 0 ? '+' : ''}${state.panX}%`;
+      }
+      if (sliderPanY) {
+        sliderPanY.value = state.panY;
+        valPanY.textContent = `${state.panY > 0 ? '+' : ''}${state.panY}%`;
+      }
+    },
     updateState: (newState) => {
       state = { ...state, ...newState };
+      if (sliderBright) sliderBright.value = state.brightness;
+      if (valBright) valBright.textContent = `${state.brightness}%`;
+      if (sliderContr) sliderContr.value = state.contrast;
+      if (valContr) valContr.textContent = `${state.contrast}%`;
+      if (sliderSat) sliderSat.value = state.saturation;
+      if (valSat) valSat.textContent = `${state.saturation}%`;
+      if (sliderZoom) sliderZoom.value = Math.round(state.zoom * 100);
+      if (valZoom) valZoom.textContent = `${Math.round(state.zoom * 100)}%`;
+      if (sliderPanX) sliderPanX.value = state.panX;
+      if (valPanX) valPanX.textContent = `${state.panX > 0 ? '+' : ''}${state.panX}%`;
+      if (sliderPanY) sliderPanY.value = state.panY;
+      if (valPanY) valPanY.textContent = `${state.panY > 0 ? '+' : ''}${state.panY}%`;
+      if (sliderTilt) sliderTilt.value = state.tilt || 0;
+      if (valTilt) valTilt.textContent = (state.tilt || 0) > 0 ? `+${(state.tilt || 0).toFixed(1)}°` : `${(state.tilt || 0).toFixed(1)}°`;
+      if (btnBW) btnBW.classList.toggle('active', state.isBW);
+      if (btnFlipH) btnFlipH.classList.toggle('active', state.flipH);
+      if (btnFlipV) btnFlipV.classList.toggle('active', state.flipV);
+      if (checkOval) checkOval.checked = state.showOval;
+      if (checkNameTag) checkNameTag.checked = state.nameTag?.enabled;
+      if (inputNameText) inputNameText.value = state.nameTag?.text || '';
+      if (inputNameSub) inputNameSub.value = state.nameTag?.sub || '';
+      if (nametagFields) nametagFields.style.display = state.nameTag?.enabled ? 'block' : 'none';
+      if (bgPicker) {
+        bgPicker.querySelectorAll('.bg-tint-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === state.bgPreset));
+      }
       notify();
     },
   };

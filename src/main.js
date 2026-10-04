@@ -5,6 +5,13 @@ import {
   SHEET_SIZES,
   getSizeById,
   getSheetById,
+  getAllSheets,
+  getUnitPreference,
+  setUnitPreference,
+  formatSizeDimensions,
+  formatDimension,
+  addCustomSheet,
+  removeCustomSheet,
   SIZE_CATEGORIES
 } from './lib/sizes.js';
 import { calcTiling, calcComboTiling } from './lib/tiler.js';
@@ -21,6 +28,31 @@ import { ShortcutsModalHTML, initShortcutsModal } from './components/ShortcutsMo
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 import { exportHighResPNG, exportHighResPDF } from './lib/exporter.js';
 
+// Helper to render sheet paper <optgroup> dropdown options
+function renderSheetOptionsHTML(selectedId) {
+  const all = getAllSheets();
+  const unit = getUnitPreference();
+  const customSheets = all.filter(s => s.isCustom);
+  const standardSheets = all.filter(s => !s.isCustom);
+
+  let html = '';
+  if (customSheets.length > 0) {
+    html += `<optgroup label="Custom Papers">`;
+    customSheets.forEach(s => {
+      const dimLabel = formatSizeDimensions(s.w, s.h, unit);
+      html += `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>★ ${s.name} (${dimLabel})</option>`;
+    });
+    html += `</optgroup>`;
+  }
+  html += `<optgroup label="Standard Papers">`;
+  standardSheets.forEach(s => {
+    const dimLabel = formatSizeDimensions(s.w, s.h, unit);
+    html += `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${s.name} (${dimLabel})</option>`;
+  });
+  html += `</optgroup>`;
+  return html;
+}
+
 // Default Adjustments Template
 function createDefaultAdjustments() {
   return {
@@ -29,6 +61,7 @@ function createDefaultAdjustments() {
     saturation: 100,
     isBW: false,
     rotation: 0,
+    tilt: 0,
     flipH: false,
     flipV: false,
     zoom: 1,
@@ -124,6 +157,13 @@ document.getElementById('app').innerHTML = `
         <span id="photo-status-text">Ready</span>
       </div>
 
+      <!-- Global Unit Switcher -->
+      <div class="unit-switcher" id="unit-switcher" title="Global Measurement Unit (Inches / Centimeters / Millimeters)">
+        <button class="unit-btn ${getUnitPreference() === 'in' ? 'active' : ''}" data-unit="in">IN</button>
+        <button class="unit-btn ${getUnitPreference() === 'cm' ? 'active' : ''}" data-unit="cm">CM</button>
+        <button class="unit-btn ${getUnitPreference() === 'mm' ? 'active' : ''}" data-unit="mm">MM</button>
+      </div>
+
       <div class="topbar-spacer"></div>
 
       <div class="topbar-actions">
@@ -199,12 +239,42 @@ document.getElementById('app').innerHTML = `
             </div>
 
             <div class="panel-section">
-              <div class="panel-label">Sheet Paper</div>
-              <select class="sheet-select" id="sheet-select">
-                ${Object.values(SHEET_SIZES).map(s => `
-                  <option value="${s.id}" ${s.id === state.sheetId ? 'selected' : ''}>${s.label}</option>
-                `).join('')}
-              </select>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div class="panel-label" style="margin-bottom:0">Sheet Paper</div>
+                <button class="btn-text-action" id="btn-open-custom-sheet" title="Create Custom Paper Size">
+                  ➕ Custom Paper
+                </button>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <select class="sheet-select" id="sheet-select" style="flex:1">
+                  ${renderSheetOptionsHTML(state.sheetId)}
+                </select>
+                <button class="btn ghost btn-icon-only" id="btn-delete-custom-sheet" style="display:none;padding:6px 8px;color:var(--danger)" title="Delete this custom paper">
+                  🗑️
+                </button>
+              </div>
+
+              <!-- Custom Sheet Inline Creator Form -->
+              <div class="custom-sheet-form" id="custom-sheet-form" style="display:none;margin-top:10px;">
+                <div class="custom-size-title" style="font-weight:700;font-size:12px;margin-bottom:8px;color:var(--ink-primary)">📄 Create Custom Paper Size</div>
+                <div class="custom-inputs-row">
+                  <input type="text" id="cust-sheet-name" placeholder="Paper Name (e.g. 5×7 Cardstock, A3+, Roll)" class="input-text" />
+                </div>
+                <div class="custom-inputs-row" style="margin-top:6px;gap:6px;display:flex;">
+                  <input type="number" id="cust-sheet-w" placeholder="Width" step="0.1" min="1" class="input-text" style="flex:1" />
+                  <span style="align-self:center;color:var(--ink-muted)">×</span>
+                  <input type="number" id="cust-sheet-h" placeholder="Height" step="0.1" min="1" class="input-text" style="flex:1" />
+                  <select id="cust-sheet-unit" class="sheet-select" style="width:70px">
+                    <option value="in" ${getUnitPreference() === 'in' ? 'selected' : ''}>in</option>
+                    <option value="cm" ${getUnitPreference() === 'cm' ? 'selected' : ''}>cm</option>
+                    <option value="mm" ${getUnitPreference() === 'mm' ? 'selected' : ''}>mm</option>
+                  </select>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:8px">
+                  <button class="btn primary" id="btn-save-custom-sheet" style="flex:1;padding:6px;font-size:12px">Save Paper</button>
+                  <button class="btn ghost" id="btn-cancel-custom-sheet" style="padding:6px;font-size:12px">Cancel</button>
+                </div>
+              </div>
             </div>
 
             <div class="panel-section" id="section-copies">
@@ -402,6 +472,11 @@ function updatePreview() {
     guideType: state.guideType,
     distributeMode: state.distributeMode,
     zoomFactor: state.zoomFactor,
+    onPanChange: (newPanX, newPanY, targetPhotoIdx) => {
+      if (targetPhotoIdx === state.activePhotoIndex) {
+        imageAdjustmentsController.updatePan(newPanX, newPanY);
+      }
+    },
   });
 
   updateCountDisplay();
@@ -826,12 +901,112 @@ btnPrint.addEventListener('click', handlePrint);
 btnExportPng.addEventListener('click', handleExportPNG);
 btnExportPdf.addEventListener('click', handleExportPDF);
 
+// ─── Global Unit Switcher Wiring ─────────────────────────────────────────────
+const unitSwitcher = document.getElementById('unit-switcher');
+if (unitSwitcher) {
+  unitSwitcher.querySelectorAll('.unit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const unit = btn.dataset.unit;
+      setUnitPreference(unit);
+      unitSwitcher.querySelectorAll('.unit-btn').forEach(b => b.classList.toggle('active', b === btn));
+      sizeSelector.refreshUnits();
+      printSettingsController.refreshUnits();
+      sheetSelect.innerHTML = renderSheetOptionsHTML(state.sheetId);
+      const custSheetUnitEl = document.getElementById('cust-sheet-unit');
+      if (custSheetUnitEl) custSheetUnitEl.value = unit;
+      const unitLabels = { in: 'Inches (in)', cm: 'Centimeters (cm)', mm: 'Millimeters (mm)' };
+      toast(`Units switched to ${unitLabels[unit] || unit}`, 'info', 1500);
+    });
+  });
+}
+
+// ─── Custom Sheet Paper Creator Wiring ────────────────────────────────────────
+const btnOpenCustomSheet   = document.getElementById('btn-open-custom-sheet');
+const btnDeleteCustomSheet = document.getElementById('btn-delete-custom-sheet');
+const customSheetForm      = document.getElementById('custom-sheet-form');
+const btnSaveCustomSheet   = document.getElementById('btn-save-custom-sheet');
+const btnCancelCustomSheet = document.getElementById('btn-cancel-custom-sheet');
+const custSheetName        = document.getElementById('cust-sheet-name');
+const custSheetW           = document.getElementById('cust-sheet-w');
+const custSheetH           = document.getElementById('cust-sheet-h');
+const custSheetUnit        = document.getElementById('cust-sheet-unit');
+
+function updateDeleteCustomSheetBtn() {
+  if (!btnDeleteCustomSheet) return;
+  const current = getSheetById(state.sheetId);
+  btnDeleteCustomSheet.style.display = current?.isCustom ? 'inline-flex' : 'none';
+}
+
+if (btnOpenCustomSheet) {
+  btnOpenCustomSheet.addEventListener('click', () => {
+    const isVisible = customSheetForm.style.display !== 'none';
+    customSheetForm.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+      if (custSheetUnit) custSheetUnit.value = getUnitPreference();
+      custSheetW?.focus();
+    }
+  });
+}
+
+if (btnCancelCustomSheet) {
+  btnCancelCustomSheet.addEventListener('click', () => {
+    customSheetForm.style.display = 'none';
+  });
+}
+
+if (btnSaveCustomSheet) {
+  btnSaveCustomSheet.addEventListener('click', () => {
+    const name   = custSheetName.value.trim();
+    const width  = parseFloat(custSheetW.value);
+    const height = parseFloat(custSheetH.value);
+    const unit   = custSheetUnit.value;
+
+    if (isNaN(width) || width <= 0 || isNaN(height) || height <= 0) {
+      toast('Please enter valid positive dimensions for width and height', 'error');
+      return;
+    }
+
+    const newSheet = addCustomSheet({ name, width, height, unit });
+    state.sheetId = newSheet.id;
+    sheetSelect.innerHTML = renderSheetOptionsHTML(state.sheetId);
+    customSheetForm.style.display = 'none';
+    custSheetName.value = '';
+    custSheetW.value = '';
+    custSheetH.value = '';
+    updateDeleteCustomSheetBtn();
+    state.count = null;
+    updateCountDisplay();
+    if (state.photos.length > 0) updatePreview();
+    toast(`Created custom paper: ${newSheet.name}`, 'success');
+  });
+}
+
+if (btnDeleteCustomSheet) {
+  btnDeleteCustomSheet.addEventListener('click', () => {
+    const cur = getSheetById(state.sheetId);
+    if (!cur?.isCustom) return;
+    if (confirm(`Delete custom paper "${cur.name}"?`)) {
+      removeCustomSheet(state.sheetId);
+      state.sheetId = DEFAULT_SHEET;
+      sheetSelect.innerHTML = renderSheetOptionsHTML(state.sheetId);
+      updateDeleteCustomSheetBtn();
+      state.count = null;
+      updateCountDisplay();
+      if (state.photos.length > 0) updatePreview();
+      toast('Custom paper deleted', 'info');
+    }
+  });
+}
+
 sheetSelect.addEventListener('change', () => {
   state.sheetId = sheetSelect.value;
   state.count = null;
+  updateDeleteCustomSheetBtn();
   updateCountDisplay();
   if (state.photos.length > 0) updatePreview();
 });
+
+updateDeleteCustomSheetBtn();
 
 btnCountUp.addEventListener('click', () => {
   const tiling = getTiling();

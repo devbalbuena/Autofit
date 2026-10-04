@@ -8,7 +8,9 @@ import {
   getAllSizes,
   addCustomSize,
   removeCustomSize,
-  getSizeById
+  getSizeById,
+  formatSizeDimensions,
+  getUnitPreference,
 } from '../lib/sizes.js';
 import { toast } from '../lib/toast.js';
 
@@ -122,10 +124,11 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
 
       html += filteredSizes.map(s => {
         const isSelected = s.id === selectedId;
+        const dimText = s.isCombo ? s.label : formatSizeDimensions(s.w, s.h);
         return `
           <div class="size-compact-item ${isSelected ? 'active' : ''}" data-size="${s.id}">
             <div class="size-compact-title">${s.name} ${s.isCombo ? '★' : ''}</div>
-            <div class="size-compact-dim">${s.label}</div>
+            <div class="size-compact-dim">${dimText}</div>
             ${s.isCustom ? `<button class="btn-custom-delete" data-del-id="${s.id}" style="position:static;margin-left:6px;">&times;</button>` : ''}
           </div>
         `;
@@ -149,6 +152,7 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
 
       html += filteredSizes.map(s => {
         const isSelected = s.id === selectedId;
+        const dimText = s.isCombo ? s.label : formatSizeDimensions(s.w, s.h);
 
         if (s.isCombo) {
           return `
@@ -166,7 +170,7 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
               <button class="btn-custom-delete" data-del-id="${s.id}" title="Delete Custom Size">&times;</button>
               <div class="combo-badge" style="background:rgba(245,158,11,0.15);color:#f59e0b">📐 Custom</div>
               <div class="size-card-name">${s.name}</div>
-              <div class="size-card-dim">${s.label}</div>
+              <div class="size-card-dim">${dimText}</div>
             </div>
           `;
         }
@@ -179,7 +183,7 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
           <div class="size-card ${isSelected ? 'active' : ''}" data-size="${s.id}" tabindex="0" role="button" aria-pressed="${isSelected}">
             <div class="size-card-preview" style="width:${previewW}px;height:${previewH}px"></div>
             <div class="size-card-name">${s.name}</div>
-            <div class="size-card-dim">${s.label}</div>
+            <div class="size-card-dim">${dimText}</div>
           </div>
         `;
       }).join('');
@@ -319,6 +323,10 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
         });
         activeCategory = found.category;
       }
+      renderSizes();
+    },
+    refreshUnits() {
+      if (custUnit) custUnit.value = getUnitPreference();
       renderSizes();
     }
   };

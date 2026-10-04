@@ -81,14 +81,20 @@ async function processPhotoCanvas(photo) {
   const adj = photo.adjustments || {};
 
   const pCanvas = document.createElement('canvas');
-  const rot   = adj.rotation ?? 0;
+  const rot   = (adj.rotation ?? 0) + (adj.tilt ?? 0);
   const flipH = adj.flipH ? -1 : 1;
   const flipV = adj.flipV ? -1 : 1;
   const zoom  = adj.zoom ?? 1;
 
-  const isRot90or270 = rot === 90 || rot === 270;
-  pCanvas.width  = isRot90or270 ? img.naturalHeight : img.naturalWidth;
-  pCanvas.height = isRot90or270 ? img.naturalWidth : img.naturalHeight;
+  // Compute rotation bounding box to prevent clipping corners on any angle/tilt
+  const rad = Math.abs((rot * Math.PI) / 180);
+  const sin = Math.abs(Math.sin(rad));
+  const cos = Math.abs(Math.cos(rad));
+  const boundW = Math.max(1, Math.round(img.naturalWidth * cos + img.naturalHeight * sin));
+  const boundH = Math.max(1, Math.round(img.naturalWidth * sin + img.naturalHeight * cos));
+
+  pCanvas.width  = boundW;
+  pCanvas.height = boundH;
 
   const pCtx = pCanvas.getContext('2d');
 

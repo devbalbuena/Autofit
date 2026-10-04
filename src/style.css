@@ -1699,3 +1699,93 @@ img {
 .print-frame {
   display: none;
 }
+
+/* ==========================================================================
+   Tier A Features: Global Units, Custom Sheets, and Interactive Canvas Pan
+   ========================================================================== */
+
+/* Global Unit Switcher */
+.unit-switcher {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-input);
+  padding: 2.5px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-medium);
+  gap: 2px;
+}
+
+.unit-btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.unit-btn:hover {
+  color: var(--ink-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.unit-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 10px rgba(59, 130, 246, 0.35);
+}
+
+/* Action button for inline forms (e.g. + Custom Paper) */
+.btn-text-action {
+  background: transparent;
+  border: none;
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-text-action:hover {
+  background: var(--accent-soft);
+  color: #ffffff;
+}
+
+/* Custom Sheet Paper Creator Form */
+.custom-sheet-form {
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  animation: fadeIn 0.18s ease-out;
+  box-shadow: var(--shadow-md);
+}
+
+/* Interactive Canvas Cell Drag-to-Pan */
+.sheet-cell.filled {
+  cursor: grab;
+}
+
+.sheet-cell.filled:active,
+.sheet-cell.filled.dragging {
+  cursor: grabbing !important;
+}
+
+.sheet-cell.filled img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+

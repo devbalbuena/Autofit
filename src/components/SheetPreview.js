@@ -99,6 +99,7 @@ export function renderSheetPreview({
   guideType = 'corners',
   distributeMode = 'repeat',
   zoomFactor = 1.0,
+  onPanChange = null,
 }) {
   const sheetEl   = containerEl.querySelector('#sheet');
   const gridEl    = containerEl.querySelector('#sheet-grid');
@@ -168,7 +169,7 @@ export function renderSheetPreview({
       const bgCSS = getBgStyle(photo.adjustments?.bgPreset);
 
       return `
-        <div class="sheet-cell filled ${guideType === 'border' ? 'cell-guide-border' : ''}" style="
+        <div class="sheet-cell filled ${guideType === 'border' ? 'cell-guide-border' : ''}" data-cell-index="${i}" title="Click and drag to reposition photo" style="
           position: absolute;
           left: ${cellPxX}px;
           top: ${cellPxY}px;
@@ -228,7 +229,7 @@ export function renderSheetPreview({
       const bgCSS = getBgStyle(photo.adjustments?.bgPreset);
 
       return `
-        <div class="sheet-cell filled ${guideType === 'border' ? 'cell-guide-border' : ''}" style="
+        <div class="sheet-cell filled ${guideType === 'border' ? 'cell-guide-border' : ''}" data-cell-index="${cell.index}" title="Click and drag to reposition photo" style="
           position: absolute;
           left: ${cellPxX}px;
           top: ${cellPxY}px;
@@ -254,4 +255,94 @@ export function renderSheetPreview({
       `;
     }).join('');
   }
+
+  // Wire interactive drag-to-pan across filled cells
+  wireCellDragEvents(gridEl, photos, activePhotoIndex, distributeMode, onPanChange);
+}
+
+/**
+ * Interactive Drag-to-Pan event handler for sheet preview cells
+ */
+function wireCellDragEvents(gridEl, photos, activePhotoIndex, distributeMode, onPanChange) {
+  const cells = gridEl.querySelectorAll('.sheet-cell.filled');
+
+  cells.forEach(cellEl => {
+    const cellIdx = parseInt(cellEl.dataset.cellIndex, 10);
+    const targetPhotoIdx = (distributeMode === 'distribute' && photos.length > 1)
+      ? (cellIdx % photos.length)
+      : activePhotoIndex;
+    const targetPhoto = photos[targetPhotoIdx] || photos[0];
+    if (!targetPhoto) return;
+
+    const handleStart = (e) => {
+      // Only primary mouse button or touch
+      if (e.button !== undefined && e.button !== 0) return;
+      if (e.target.closest('button, input, select, .cell-nametag-banner')) return;
+
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+      const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+      if (clientX === undefined || clientY === undefined) return;
+
+      e.preventDefault();
+
+      const startX = clientX;
+      const startY = clientY;
+      const rect = cellEl.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const initialPanX = targetPhoto.adjustments?.panX || 0;
+      const initialPanY = targetPhoto.adjustments?.panY || 0;
+      const imgEl = cellEl.querySelector('img');
+
+      cellEl.classList.add('dragging');
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+
+      const handleMove = (moveEvt) => {
+        const curX = moveEvt.clientX ?? moveEvt.touches?.[0]?.clientX;
+        const curY = moveEvt.clientY ?? moveEvt.touches?.[0]?.clientY;
+        if (curX === undefined || curY === undefined) return;
+
+        const dx = curX - startX;
+        const dy = curY - startY;
+
+        // Sensitivity scaled to cell's rendered dimensions
+        const dPanX = (dx / rect.width) * 100;
+        const dPanY = (dy / rect.height) * 100;
+
+        const newPanX = Math.round(Math.min(50, Math.max(-50, initialPanX + dPanX)));
+        const newPanY = Math.round(Math.min(50, Math.max(-50, initialPanY + dPanY)));
+
+        if (!targetPhoto.adjustments) targetPhoto.adjustments = {};
+        targetPhoto.adjustments.panX = newPanX;
+        targetPhoto.adjustments.panY = newPanY;
+
+        if (imgEl) {
+          imgEl.style.transform = getCSSTransformString(targetPhoto.adjustments);
+        }
+
+        if (onPanChange) {
+          onPanChange(newPanX, newPanY, targetPhotoIdx);
+        }
+      };
+
+      const handleEnd = () => {
+        cellEl.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleEnd);
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('touchend', handleEnd);
+      };
+
+      window.addEventListener('mousemove', handleMove, { passive: false });
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+    };
+
+    cellEl.addEventListener('mousedown', handleStart);
+    cellEl.addEventListener('touchstart', handleStart, { passive: false });
+  });
 }

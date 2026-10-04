@@ -1,7 +1,7 @@
 /**
  * sizes.js
- * Print size presets, custom dimensions, sheet definitions, and ID Combo packages.
- * Dimensions are stored in inches with metric equivalents.
+ * Print size presets, custom dimensions, custom sheet papers, and global unit system.
+ * Dimensions are stored internally in inches with on-the-fly metric conversion.
  */
 
 export const SIZE_CATEGORIES = {
@@ -83,7 +83,7 @@ export const BASE_SIZES = [
   { id: 'letter',   name: 'Letter',   category: SIZE_CATEGORIES.LARGE, w: 8.5,  h: 11,   mm: '215.9 × 279.4 mm', label: '8.5 × 11 in' },
 ];
 
-export const SHEET_SIZES = {
+export const BASE_SHEET_SIZES = {
   a4:         { id: 'a4',         name: 'A4',         w: 8.27, h: 11.69, label: 'A4 (8.27 × 11.69 in)' },
   letter:     { id: 'letter',     name: 'Letter',     w: 8.5,  h: 11,    label: 'Letter (8.5 × 11 in)' },
   legal:      { id: 'legal',      name: 'Legal',      w: 8.5,  h: 14,    label: 'Legal (8.5 × 14 in)' },
@@ -96,11 +96,31 @@ export const DEFAULT_SIZE_ID = '4r';
 export const DEFAULT_SHEET   = 'a4';
 export const SCREEN_DPI      = 96;
 
-const CUSTOM_SIZES_KEY = 'autofit_custom_sizes';
+const CUSTOM_SIZES_KEY  = 'autofit_custom_sizes';
+const CUSTOM_SHEETS_KEY = 'autofit_custom_sheets';
+const UNIT_PREF_KEY     = 'autofit_unit_pref';
 
 /**
- * Unit conversion helpers
+ * ─── Unit Conversion & Formatting ──────────────────────────────────────────
  */
+export function getUnitPreference() {
+  try {
+    return (typeof localStorage !== 'undefined' ? localStorage.getItem(UNIT_PREF_KEY) : null) || 'in';
+  } catch {
+    return 'in';
+  }
+}
+
+export function setUnitPreference(unit) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(UNIT_PREF_KEY, unit);
+    }
+  } catch (err) {
+    console.warn('Failed to save unit preference:', err);
+  }
+}
+
 export function unitToInches(val, unit) {
   const num = parseFloat(val) || 0;
   if (unit === 'cm') return num / 2.54;
@@ -114,12 +134,24 @@ export function inchesToUnit(inches, unit) {
   return inches.toFixed(2);
 }
 
+export function formatDimension(inches, unit = getUnitPreference()) {
+  if (unit === 'cm') return `${(inches * 2.54).toFixed(1)} cm`;
+  if (unit === 'mm') return `${(inches * 25.4).toFixed(0)} mm`;
+  return `${inches.toFixed(2)}"`;
+}
+
+export function formatSizeDimensions(w, h, unit = getUnitPreference()) {
+  if (unit === 'cm') return `${(w * 2.54).toFixed(1)} × ${(h * 2.54).toFixed(1)} cm`;
+  if (unit === 'mm') return `${(w * 25.4).toFixed(0)} × ${(h * 25.4).toFixed(0)} mm`;
+  return `${w}" × ${h}"`;
+}
+
 /**
- * Custom size persistence
+ * ─── Custom Print Sizes Persistence ────────────────────────────────────────
  */
 export function getCustomSizes() {
   try {
-    const data = localStorage.getItem(CUSTOM_SIZES_KEY);
+    const data = typeof localStorage !== 'undefined' ? localStorage.getItem(CUSTOM_SIZES_KEY) : null;
     return data ? JSON.parse(data) : [];
   } catch {
     return [];
@@ -128,7 +160,9 @@ export function getCustomSizes() {
 
 export function saveCustomSizes(list) {
   try {
-    localStorage.setItem(CUSTOM_SIZES_KEY, JSON.stringify(list));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CUSTOM_SIZES_KEY, JSON.stringify(list));
+    }
   } catch (err) {
     console.warn('Failed to save custom sizes:', err);
   }
@@ -175,6 +209,65 @@ export function getSizeById(id) {
   return all.find(s => s.id === id) ?? all.find(s => s.id === DEFAULT_SIZE_ID) ?? all[0];
 }
 
-export function getSheetById(id) {
-  return SHEET_SIZES[id] ?? SHEET_SIZES[DEFAULT_SHEET];
+/**
+ * ─── Custom Sheet Paper Persistence ────────────────────────────────────────
+ */
+export function getCustomSheets() {
+  try {
+    const data = typeof localStorage !== 'undefined' ? localStorage.getItem(CUSTOM_SHEETS_KEY) : null;
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
 }
+
+export function saveCustomSheets(list) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CUSTOM_SHEETS_KEY, JSON.stringify(list));
+    }
+  } catch (err) {
+    console.warn('Failed to save custom sheets:', err);
+  }
+}
+
+export function addCustomSheet({ name, width, height, unit = 'in' }) {
+  const w = Math.round(unitToInches(width, unit) * 100) / 100;
+  const h = Math.round(unitToInches(height, unit) * 100) / 100;
+  const id = `sheet_custom_${Date.now()}`;
+  const customSheet = {
+    id,
+    name: name || `${width}×${height} ${unit} Paper`,
+    w,
+    h,
+    label: `${name || 'Custom'} (${w}" × ${h}")`,
+    isCustom: true,
+    rawUnit: unit,
+    rawW: width,
+    rawH: height,
+  };
+
+  const list = getCustomSheets();
+  list.unshift(customSheet);
+  saveCustomSheets(list);
+  return customSheet;
+}
+
+export function removeCustomSheet(id) {
+  const list = getCustomSheets().filter(s => s.id !== id);
+  saveCustomSheets(list);
+  return list;
+}
+
+export function getAllSheets() {
+  const custom = getCustomSheets();
+  const base = Object.values(BASE_SHEET_SIZES);
+  return [...custom, ...base];
+}
+
+export function getSheetById(id) {
+  const all = getAllSheets();
+  return all.find(s => s.id === id) ?? BASE_SHEET_SIZES[id] ?? BASE_SHEET_SIZES[DEFAULT_SHEET];
+}
+
+export const SHEET_SIZES = BASE_SHEET_SIZES;

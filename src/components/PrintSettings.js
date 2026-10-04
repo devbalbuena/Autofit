@@ -4,6 +4,7 @@
  * cutting guides (corner marks vs dashed borders), sheet margins & presets,
  * photo gaps & presets, and multi-photo distribution.
  */
+import { formatDimension } from '../lib/sizes.js';
 
 export function PrintSettingsHTML({
   orientation = 'portrait', // 'portrait' | 'landscape'
@@ -64,7 +65,7 @@ export function PrintSettingsHTML({
         <div class="adjust-slider-group">
           <div class="slider-header">
             <span>Margin Width</span>
-            <span class="slider-val" id="val-sheet-margin">${margin.toFixed(2)}"</span>
+            <span class="slider-val" id="val-sheet-margin">${formatDimension(margin)}</span>
           </div>
           <input type="range" id="slider-sheet-margin" min="0" max="0.75" step="0.05" value="${margin}" />
         </div>
@@ -81,7 +82,7 @@ export function PrintSettingsHTML({
         <div class="adjust-slider-group">
           <div class="slider-header">
             <span>Spacing (Gap)</span>
-            <span class="slider-val" id="val-photo-gap">${gap === 0 ? '0 (Zero-gap)' : `${gap.toFixed(2)}"`}</span>
+            <span class="slider-val" id="val-photo-gap">${gap === 0 ? '0 (Zero-gap)' : formatDimension(gap)}</span>
           </div>
           <input type="range" id="slider-photo-gap" min="0" max="0.30" step="0.01" value="${gap}" />
         </div>
@@ -156,7 +157,7 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
   if (sliderMargin) {
     sliderMargin.addEventListener('input', () => {
       const val = parseFloat(sliderMargin.value);
-      valMargin.textContent = `${val.toFixed(2)}"`;
+      valMargin.textContent = formatDimension(val);
       updateMarginChip(val);
       onChange({ margin: val });
     });
@@ -167,7 +168,7 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
       btn.addEventListener('click', () => {
         const val = parseFloat(btn.dataset.margin);
         sliderMargin.value = val;
-        valMargin.textContent = `${val.toFixed(2)}"`;
+        valMargin.textContent = formatDimension(val);
         updateMarginChip(val);
         onChange({ margin: val });
       });
@@ -184,7 +185,7 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
   if (sliderGap) {
     sliderGap.addEventListener('input', () => {
       const val = parseFloat(sliderGap.value);
-      valGap.textContent = val === 0 ? '0 (Zero-gap)' : `${val.toFixed(2)}"`;
+      valGap.textContent = val === 0 ? '0 (Zero-gap)' : formatDimension(val);
       updateGapChip(val);
       onChange({ gap: val });
     });
@@ -195,7 +196,7 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
       btn.addEventListener('click', () => {
         const val = parseFloat(btn.dataset.gap);
         sliderGap.value = val;
-        valGap.textContent = val === 0 ? '0 (Zero-gap)' : `${val.toFixed(2)}"`;
+        valGap.textContent = val === 0 ? '0 (Zero-gap)' : formatDimension(val);
         updateGapChip(val);
         onChange({ gap: val });
       });
@@ -223,6 +224,15 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
     updatePhotoCount: (count) => {
       const sec = containerEl.querySelector('#section-multi-photo');
       if (sec) sec.style.display = count > 1 ? 'block' : 'none';
+    },
+    refreshUnits: () => {
+      if (sliderMargin && valMargin) {
+        valMargin.textContent = formatDimension(parseFloat(sliderMargin.value));
+      }
+      if (sliderGap && valGap) {
+        const g = parseFloat(sliderGap.value);
+        valGap.textContent = g === 0 ? '0 (Zero-gap)' : formatDimension(g);
+      }
     }
   };
 }
