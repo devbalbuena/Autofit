@@ -193,6 +193,121 @@ export function calcComboTiling(comboItems, sheetW, sheetH, options = {}) {
 }
 
 /**
+ * Calculate multi-customer batch tiling.
+ * Supports different customers with their own specific size (w, h) and quantity,
+ * packing same-size items continuously into rows, and stacking across rows at top-left margin.
+ *
+ * @param {Array<{ photoIndex: number, id: string, name: string, w: number, h: number, quantity: number, sizeName?: string }>} customers
+ * @param {number} sheetW
+ * @param {number} sheetH
+ * @param {Object} options
+ */
+export function calcMultiCustomerTiling(customers = [], sheetW, sheetH, options = {}) {
+  const margin = options.margin !== undefined ? Math.max(0, options.margin) : 0.20;
+  const gap    = options.gap !== undefined ? Math.max(0, options.gap) : 0.05;
+  const usableW = Math.max(sheetW - margin * 2, 0.1);
+
+  const rawCells = [];
+  let currentY = 0;
+  let totalArea = 0;
+  let globalIdx = 0;
+
+  // Group customers by dimension key so same-size photos share rows and maximize paper conservation
+  const sizeGroups = new Map();
+  for (const cust of customers) {
+    const w = cust.w || 2;
+    const h = cust.h || 2;
+    const key = `${w.toFixed(2)}x${h.toFixed(2)}`;
+    if (!sizeGroups.has(key)) {
+      sizeGroups.set(key, { w, h, members: [] });
+    }
+    sizeGroups.get(key).members.push(cust);
+  }
+
+  // Lay out each size group
+  for (const group of sizeGroups.values()) {
+    const { w, h, members } = group;
+    const cols = Math.max(1, Math.floor((usableW + gap) / (w + gap)));
+    let slotIdx = 0;
+
+    for (const member of members) {
+      const qty = Math.max(1, member.quantity || 1);
+      for (let k = 0; k < qty; k++) {
+        const colIdx = slotIdx % cols;
+        const rowIdx = Math.floor(slotIdx / cols);
+
+        const x = colIdx * (w + gap);
+        const y = currentY + rowIdx * (h + gap);
+
+        rawCells.push({
+          index: globalIdx++,
+          photoIndex: member.photoIndex,
+          photoId: member.id,
+          customerName: member.name || `Customer ${member.photoIndex + 1}`,
+          sizeName: member.sizeName || `${w}×${h}`,
+          w,
+          h,
+          x,
+          y,
+          filled: true,
+        });
+
+        totalArea += w * h;
+        slotIdx++;
+      }
+    }
+
+    const totalRowsUsed = Math.ceil(slotIdx / cols);
+    currentY += totalRowsUsed * (h + gap) + 0.06; // slight gap between different size sections
+  }
+
+  // Find bounding box
+  const boundsW = rawCells.reduce((max, c) => Math.max(max, c.x + c.w), 0);
+  const boundsH = rawCells.reduce((max, c) => Math.max(max, c.y + c.h), 0);
+
+  // Alignment: default to top-left paper-saver mode
+  const alignment = options.alignment || 'top-left';
+  const customOffsetX = options.customOffsetX || 0;
+  const customOffsetY = options.customOffsetY || 0;
+
+  let baseOffsetX = margin;
+  let baseOffsetY = margin;
+
+  if (alignment === 'center') {
+    baseOffsetX = Math.max(margin, (sheetW - boundsW) / 2);
+    baseOffsetY = Math.max(margin, (sheetH - boundsH) / 2);
+  }
+
+  const offsetX = baseOffsetX + customOffsetX;
+  const offsetY = baseOffsetY + customOffsetY;
+
+  const cells = rawCells.map((c) => ({
+    ...c,
+    x: c.x + offsetX,
+    y: c.y + offsetY,
+  }));
+
+  const totalCopies = rawCells.length;
+  const coveragePercent = Math.min(100, Math.round((totalArea / (sheetW * sheetH)) * 100));
+
+  return {
+    isMultiCustomer: true,
+    cells,
+    total: totalCopies,
+    maxFit: totalCopies,
+    gap,
+    margin,
+    boundsX: offsetX,
+    boundsY: offsetY,
+    boundsW,
+    boundsH,
+    offsetX,
+    offsetY,
+    coveragePercent,
+  };
+}
+
+/**
  * Convert inches to screen pixels
  */
 export function inToPx(inches, scale = 1) {

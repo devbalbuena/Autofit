@@ -113,9 +113,12 @@ export function buildPrintHTML({
   const cellsHTML = tiling.cells.map((cell, idx) => {
     if (!cell.filled) return '';
 
-    const photo = (distributeMode === 'distribute' && photos.length > 1)
-      ? photos[idx % photos.length]
-      : (photos[activePhotoIndex] || photos[0]);
+    // Support explicit multi-customer assignment, multi-photo distribute, or active photo
+    const photo = (cell.photoIndex !== undefined && photos[cell.photoIndex])
+      ? photos[cell.photoIndex]
+      : ((distributeMode === 'distribute' && photos.length > 1)
+        ? photos[idx % photos.length]
+        : (photos[activePhotoIndex] || photos[0]));
 
     const filterCSS    = getCSSFilterString(photo.adjustments);
     const transformCSS = getCSSTransformString(photo.adjustments);

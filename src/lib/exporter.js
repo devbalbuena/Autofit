@@ -45,9 +45,11 @@ async function renderSheetToCanvas({
     const cell = tilingResult.cells[idx];
     if (!cell.filled) continue;
 
-    const photoIdx = (distributeMode === 'distribute' && photos.length > 1)
-      ? (idx % photos.length)
-      : activePhotoIndex;
+    const photoIdx = (cell.photoIndex !== undefined && photos[cell.photoIndex])
+      ? cell.photoIndex
+      : ((distributeMode === 'distribute' && photos.length > 1)
+        ? (idx % photos.length)
+        : activePhotoIndex);
 
     const photo = photos[photoIdx] || photos[0];
     const procCanvas = processedCache.get(photoIdx) || processedCache.get(0);

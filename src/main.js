@@ -14,7 +14,7 @@ import {
   removeCustomSheet,
   SIZE_CATEGORIES
 } from './lib/sizes.js';
-import { calcTiling, calcComboTiling } from './lib/tiler.js';
+import { calcTiling, calcComboTiling, calcMultiCustomerTiling } from './lib/tiler.js';
 import { saveToHistory, generateThumbnail } from './lib/history.js';
 import { extractImageFromClipboard, fileToDataUrl, safeFileName, getImageDimensions } from './lib/clipboard.js';
 import { toast } from './lib/toast.js';
@@ -282,13 +282,13 @@ document.getElementById('app').innerHTML = `
             </div>
 
             <div class="panel-section" id="section-copies">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div id="single-count-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                 <div class="panel-label" style="margin-bottom:0">Copies Per Sheet</div>
                 <button class="btn-text-action" id="btn-count-max" title="Fill entire sheet with max copies">
                   Max Fit
                 </button>
               </div>
-              <div class="count-row">
+              <div class="count-row" id="single-count-row">
                 <span class="count-label">Quantity:</span>
                 <div class="count-controls" style="flex:1;max-width:140px;">
                   <button class="count-btn" id="btn-count-down" title="Decrease copies (−)">−</button>
@@ -296,6 +296,12 @@ document.getElementById('app').innerHTML = `
                   <button class="count-btn" id="btn-count-up" title="Increase copies (+)">+</button>
                 </div>
                 <span class="count-max-hint" id="count-max-hint">/ max 12</span>
+              </div>
+              <div class="multi-cust-summary-row" id="multi-cust-summary-row" style="display:none;background:var(--bg-card);border:1px solid var(--border-medium);border-radius:var(--radius-sm);padding:8px 12px;align-items:center;justify-content:space-between;">
+                <span style="font-size:12px;font-weight:600;color:var(--ink-primary);display:flex;align-items:center;gap:6px;">
+                  <span>👥</span> Multi-Customer Batch
+                </span>
+                <span id="multi-cust-summary-text" style="font-size:11px;font-weight:700;color:var(--accent-hover);font-family:var(--font-mono);">0 Customers</span>
               </div>
             </div>
 
@@ -436,6 +442,31 @@ function getTiling() {
   const sizeObj  = getSizeById(state.sizeId);
   const sheetObj = getSheetObject();
 
+  // Multi-Customer Gang-Run Batch Studio (Option A)
+  if (state.photos.length > 1) {
+    const customerList = state.photos.map((p, idx) => {
+      const sId = p.sizeId || (state.sizeId.startsWith('combo') ? '2x2' : state.sizeId);
+      const sObj = getSizeById(sId) || getSizeById('2x2');
+      return {
+        photoIndex: idx,
+        id: p.id,
+        name: p.name || `Customer #${idx + 1}`,
+        w: sObj.w,
+        h: sObj.h,
+        quantity: p.quantity || 1,
+        sizeName: sObj.name || `${sObj.w}×${sObj.h}`,
+      };
+    });
+
+    return calcMultiCustomerTiling(customerList, sheetObj.w, sheetObj.h, {
+      margin: state.margin,
+      gap: state.gap,
+      alignment: state.alignment,
+      customOffsetX: state.customOffsetX,
+      customOffsetY: state.customOffsetY,
+    });
+  }
+
   if (sizeObj.isCombo) {
     return calcComboTiling(sizeObj.comboItems, sheetObj.w, sheetObj.h, {
       margin: state.margin,
@@ -457,6 +488,30 @@ function getTiling() {
 
 function updateCountDisplay() {
   const sizeObj = getSizeById(state.sizeId);
+  const singleHeader = document.getElementById('single-count-header');
+  const singleRow    = document.getElementById('single-count-row');
+  const multiRow     = document.getElementById('multi-cust-summary-row');
+  const multiText    = document.getElementById('multi-cust-summary-text');
+
+  // When multi-customer batch is active, each card has its own quantity stepper
+  if (state.photos.length > 1) {
+    if (sectionCopies) sectionCopies.style.display = 'block';
+    if (singleHeader) singleHeader.style.display = 'none';
+    if (singleRow) singleRow.style.display = 'none';
+    if (multiRow) {
+      multiRow.style.display = 'flex';
+      const tiling = getTiling();
+      if (multiText) {
+        multiText.textContent = `${state.photos.length} Customers • ${tiling.total} IDs on sheet`;
+      }
+    }
+    return;
+  }
+
+  if (multiRow) multiRow.style.display = 'none';
+  if (singleHeader) singleHeader.style.display = 'flex';
+  if (singleRow) singleRow.style.display = 'flex';
+
   if (sizeObj.isCombo) {
     if (sectionCopies) sectionCopies.style.display = 'none';
     return;
@@ -527,6 +582,9 @@ function updatePreview() {
       state.canvasMode = newMode;
       updatePreview();
     },
+    onSelectPhoto: (idx) => {
+      setActivePhoto(idx);
+    },
   });
 
   updateCountDisplay();
@@ -535,16 +593,16 @@ function updatePreview() {
   if (photoStatusText) {
     photoStatusText.textContent = state.photos.length === 1
       ? `${state.photos[0].dimensions.width}×${state.photos[0].dimensions.height}`
-      : `${state.photos.length} Photos in Queue`;
+      : `${state.photos.length} Customers (${tiling.total} IDs)`;
   }
 }
 
 // Wire Multi-photo Queue Events
 function wireQueueEvents() {
-  const queueItems = sheetWrap.querySelectorAll('.queue-item');
-  queueItems.forEach(el => {
+  const cards = sheetWrap.querySelectorAll('.customer-queue-card');
+  cards.forEach(el => {
     el.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-queue-remove')) return;
+      if (e.target.closest('button, select, input')) return;
       const idx = parseInt(el.dataset.idx, 10);
       setActivePhoto(idx);
     });
@@ -556,6 +614,32 @@ function wireQueueEvents() {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.removeIdx, 10);
       removePhotoFromQueue(idx);
+    });
+  });
+
+  const sizeSelects = sheetWrap.querySelectorAll('.customer-size-select');
+  sizeSelects.forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(sel.dataset.custIdx, 10);
+      if (state.photos[idx]) {
+        state.photos[idx].sizeId = sel.value;
+        updatePreview();
+      }
+    });
+  });
+
+  const qtyBtns = sheetWrap.querySelectorAll('.btn-cust-qty');
+  qtyBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.custIdx, 10);
+      const action = btn.dataset.qtyAction;
+      if (state.photos[idx]) {
+        const cur = state.photos[idx].quantity || 1;
+        state.photos[idx].quantity = action === 'dec' ? Math.max(1, cur - 1) : cur + 1;
+        updatePreview();
+      }
     });
   });
 
@@ -695,6 +779,7 @@ async function loadFiles(fileList) {
       const dimensions = await getImageDimensions(dataUrl);
       const thumbUrl   = await generateThumbnail(dataUrl, 120);
 
+      const defaultCustSize = state.sizeId.startsWith('combo') ? '2x2' : state.sizeId;
       const newPhoto = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         dataUrl,
@@ -702,6 +787,8 @@ async function loadFiles(fileList) {
         name,
         dimensions,
         adjustments: createDefaultAdjustments(),
+        sizeId: defaultCustSize,
+        quantity: 1,
       };
 
       state.photos.push(newPhoto);
@@ -737,6 +824,7 @@ async function loadFiles(fileList) {
 }
 
 function loadSinglePhotoFromData({ dataUrl, name, dimensions, thumbUrl, sizeId }) {
+  const chosenSize = (sizeId && !sizeId.startsWith('combo')) ? sizeId : '2x2';
   state.photos = [{
     id: Date.now().toString(),
     dataUrl,
@@ -744,6 +832,8 @@ function loadSinglePhotoFromData({ dataUrl, name, dimensions, thumbUrl, sizeId }
     name: name || 'photo',
     dimensions: dimensions || { width: 0, height: 0 },
     adjustments: createDefaultAdjustments(),
+    sizeId: chosenSize,
+    quantity: 1,
   }];
   state.activePhotoIndex = 0;
 

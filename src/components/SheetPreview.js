@@ -9,12 +9,16 @@ import { getCSSFilterString, getCSSTransformString } from './ImageAdjustments.js
 export function SheetPreviewHTML() {
   return `
     <div class="sheet-wrap" id="sheet-wrap">
-      <!-- Floating Multi-Photo Queue Bar -->
+      <!-- Multi-Customer Order Cards Bar -->
       <div class="photo-queue-bar" id="photo-queue-bar" style="display:none;">
-        <span class="queue-title">Photos:</span>
+        <div class="queue-meta-title">
+          <span class="queue-icon">👥</span>
+          <span class="queue-label">Customer Orders</span>
+          <span class="queue-count-badge" id="queue-count-badge">0</span>
+        </div>
         <div class="queue-list" id="queue-list"></div>
-        <button class="btn-add-more-photos" id="btn-add-more-photos" title="Add another photo to sheet queue">
-          <span>➕</span> Add Photo
+        <button class="btn-add-more-photos" id="btn-add-more-photos" title="Add another customer photo to print on this sheet">
+          <span>➕</span> Add Customer Photo
         </button>
       </div>
 
@@ -98,6 +102,17 @@ function getBgStyle(bgPreset) {
   }
 }
 
+export const CUSTOMER_PRINT_SIZES = [
+  { id: '2x2', label: '2×2" (Passport)' },
+  { id: '1x1', label: '1×1" (ID)' },
+  { id: 'passport', label: 'Passport (35×45mm)' },
+  { id: 'wallet', label: 'Wallet (2×2.5")' },
+  { id: '3r', label: '3R (3.5×5")' },
+  { id: '4r', label: '4R (4×6")' },
+  { id: '5r', label: '5R (5×7")' },
+  { id: '4x4', label: '4×4" Sq' },
+];
+
 /**
  * Render the sheet preview
  */
@@ -117,6 +132,7 @@ export function renderSheetPreview({
   onLayoutMove = null,
   onResetPosition = null,
   onModeChange = null,
+  onSelectPhoto = null,
 }) {
   const sheetEl   = containerEl.querySelector('#sheet');
   const gridEl    = containerEl.querySelector('#sheet-grid');
@@ -145,14 +161,35 @@ export function renderSheetPreview({
     btnResetPos.onclick = () => { if (onResetPosition) onResetPosition(); };
   }
 
-  // Render Multi-Photo Queue Bar
+  // Render Multi-Customer Queue Bar with rich order cards
   if (queueBar && queueList) {
-    if (photos.length > 1) {
+    if (photos.length > 0) {
       queueBar.style.display = 'flex';
+      const countBadge = containerEl.querySelector('#queue-count-badge');
+      if (countBadge) countBadge.textContent = `${photos.length}`;
+
       queueList.innerHTML = photos.map((p, idx) => `
-        <div class="queue-item ${idx === activePhotoIndex ? 'active' : ''}" data-idx="${idx}" title="${p.name}">
-          <img src="${p.thumbUrl || p.dataUrl}" alt="${p.name}" />
-          <button class="btn-queue-remove" data-remove-idx="${idx}" title="Remove photo">&times;</button>
+        <div class="customer-queue-card ${idx === activePhotoIndex ? 'active' : ''}" data-idx="${idx}" title="Click to edit photo adjustments & Name Tag for ${p.name || `Customer #${idx + 1}`}">
+          <div class="customer-thumb-wrap">
+            <img src="${p.thumbUrl || p.dataUrl}" alt="${p.name}" />
+            <span class="customer-num-badge">#${idx + 1}</span>
+          </div>
+          <div class="customer-card-body">
+            <div class="customer-card-header">
+              <span class="customer-card-name" title="${p.name}">${p.name || `Customer #${idx + 1}`}</span>
+              ${photos.length > 1 ? `<button class="btn-queue-remove" data-remove-idx="${idx}" title="Remove Customer">&times;</button>` : ''}
+            </div>
+            <div class="customer-card-controls">
+              <select class="customer-size-select" data-cust-idx="${idx}" title="Select ID/Print Size for Customer #${idx + 1}">
+                ${CUSTOMER_PRINT_SIZES.map(s => `<option value="${s.id}" ${(p.sizeId || '2x2') === s.id ? 'selected' : ''}>${s.label}</option>`).join('')}
+              </select>
+              <div class="customer-qty-box">
+                <button class="btn-cust-qty" data-qty-action="dec" data-cust-idx="${idx}" title="Decrease copies">−</button>
+                <span class="cust-qty-num">${p.quantity || 1}</span>
+                <button class="btn-cust-qty" data-qty-action="inc" data-cust-idx="${idx}" title="Increase copies">+</button>
+              </div>
+            </div>
+          </div>
         </div>
       `).join('');
     } else {
@@ -182,8 +219,58 @@ export function renderSheetPreview({
     return photos[activePhotoIndex] || photos[0];
   }
 
-  // ── Combo Layout ───────────────────────────────────────────────────────────
-  if (tilingResult.isCombo) {
+  // ── Multi-Customer Gang-Run Layout ─────────────────────────────────────────
+  if (tilingResult.isMultiCustomer) {
+    gridEl.style.cssText = `
+      display: block;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    `;
+
+    gridEl.innerHTML = tilingResult.cells.map((cell, i) => {
+      const cellPxX = Math.round(cell.x * 96 * scale);
+      const cellPxY = Math.round(cell.y * 96 * scale);
+      const cellPxW = Math.round(cell.w * 96 * scale);
+      const cellPxH = Math.round(cell.h * 96 * scale);
+
+      const photo = (cell.photoIndex !== undefined && photos[cell.photoIndex])
+        ? photos[cell.photoIndex]
+        : (photos[activePhotoIndex] || photos[0]);
+
+      const filterCSS = getCSSFilterString(photo.adjustments);
+      const transformCSS = getCSSTransformString(photo.adjustments);
+      const bgCSS = getBgStyle(photo.adjustments?.bgPreset);
+
+      return `
+        <div class="sheet-cell filled ${canvasMode === 'move' ? 'cell-mode-move' : ''} ${guideType === 'border' ? 'cell-guide-border' : ''} ${cell.photoIndex === activePhotoIndex ? 'cell-customer-active' : ''}" data-cell-index="${i}" data-photo-index="${cell.photoIndex}" title="Customer #${(cell.photoIndex ?? 0) + 1}: ${cell.customerName} (${cell.sizeName})" style="
+          position: absolute;
+          left: ${cellPxX}px;
+          top: ${cellPxY}px;
+          width: ${cellPxW}px;
+          height: ${cellPxH}px;
+          overflow: hidden;
+          ${bgCSS}
+        ">
+          ${guideType === 'corners' ? renderCornerMarksHTML() : ''}
+          ${photo.adjustments?.showOval ? renderOvalGuideHTML() : ''}
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <img src="${photo.dataUrl}" alt="${cell.customerName}" style="
+              width: 100%;
+              height: 100%;
+              object-fit: ${fitMode};
+              filter: ${filterCSS};
+              transform: ${transformCSS};
+              transform-origin: center center;
+            " />
+          </div>
+          ${renderNameTagHTML(photo.adjustments?.nameTag)}
+          <div class="cell-tag">#${(cell.photoIndex ?? 0) + 1} • ${cell.sizeName || `${cell.w}×${cell.h}`}</div>
+        </div>
+      `;
+    }).join('');
+  } else if (tilingResult.isCombo) {
     gridEl.style.cssText = `
       display: block;
       position: absolute;
@@ -338,6 +425,7 @@ export function renderSheetPreview({
     onPanChange,
     onLayoutMove,
     onModeChange,
+    onSelectPhoto,
   });
 }
 
@@ -357,6 +445,7 @@ function wireCanvasInteractions({
   onPanChange,
   onLayoutMove,
   onModeChange,
+  onSelectPhoto,
 }) {
   const cells = gridEl.querySelectorAll('.sheet-cell.filled');
 
@@ -430,11 +519,18 @@ function wireCanvasInteractions({
   // 2. Wire cells
   cells.forEach(cellEl => {
     const cellIdx = parseInt(cellEl.dataset.cellIndex, 10);
-    const targetPhotoIdx = (distributeMode === 'distribute' && photos.length > 1)
-      ? (cellIdx % photos.length)
-      : activePhotoIndex;
+    const targetPhotoIdx = (cellEl.dataset.photoIndex !== undefined && cellEl.dataset.photoIndex !== '')
+      ? parseInt(cellEl.dataset.photoIndex, 10)
+      : ((distributeMode === 'distribute' && photos.length > 1)
+        ? (cellIdx % photos.length)
+        : activePhotoIndex);
     const targetPhoto = photos[targetPhotoIdx] || photos[0];
     if (!targetPhoto) return;
+
+    cellEl.addEventListener('click', (e) => {
+      if (e.target.closest('button, input, select')) return;
+      if (onSelectPhoto) onSelectPhoto(targetPhotoIdx);
+    });
 
     // Double click on a cell switches to Crop/Pan mode
     cellEl.addEventListener('dblclick', () => {
