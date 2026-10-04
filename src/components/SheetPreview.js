@@ -21,11 +21,24 @@ export function SheetPreviewHTML() {
       <div class="sheet-viewport" id="sheet-viewport">
         <div class="sheet" id="sheet">
           <div class="sheet-grid" id="sheet-grid"></div>
+          <div class="sheet-layout-bounds" id="sheet-layout-bounds" style="display:none;"></div>
         </div>
       </div>
 
-      <!-- Floating Canvas Zoom & View Controls -->
+      <!-- Floating Canvas Mode & Zoom Controls -->
       <div class="floating-canvas-controls" id="floating-canvas-controls">
+        <div class="canvas-mode-group" id="canvas-mode-group">
+          <button class="canvas-mode-btn active" id="btn-mode-move" title="Select & Move IDs anywhere on the paper (Word-style drag)">
+            <span>✥</span> Move
+          </button>
+          <button class="canvas-mode-btn" id="btn-mode-crop" title="Crop & Pan image inside cell">
+            <span>✋</span> Pan
+          </button>
+          <button class="canvas-mode-btn" id="btn-reset-pos" title="Reset placement to top margin">
+            <span>↺</span>
+          </button>
+        </div>
+        <div class="canvas-controls-divider"></div>
         <button class="canvas-ctrl-btn" id="btn-zoom-out" title="Zoom Out (−)">−</button>
         <span class="canvas-zoom-val" id="canvas-zoom-val">Fit</span>
         <button class="canvas-ctrl-btn" id="btn-zoom-in" title="Zoom In (+)">+</button>
@@ -99,16 +112,38 @@ export function renderSheetPreview({
   guideType = 'corners',
   distributeMode = 'repeat',
   zoomFactor = 1.0,
+  canvasMode = 'move', // 'move' | 'crop'
   onPanChange = null,
+  onLayoutMove = null,
+  onResetPosition = null,
+  onModeChange = null,
 }) {
   const sheetEl   = containerEl.querySelector('#sheet');
   const gridEl    = containerEl.querySelector('#sheet-grid');
+  const boundsEl  = containerEl.querySelector('#sheet-layout-bounds');
   const queueBar  = containerEl.querySelector('#photo-queue-bar');
   const queueList = containerEl.querySelector('#queue-list');
   const zoomValEl = containerEl.querySelector('#canvas-zoom-val');
   const canvasArea = containerEl.closest('.canvas-area') || containerEl;
 
   if (!sheetEl || !gridEl || photos.length === 0) return;
+
+  // Wire floating mode buttons
+  const btnModeMove = containerEl.querySelector('#btn-mode-move');
+  const btnModeCrop = containerEl.querySelector('#btn-mode-crop');
+  const btnResetPos = containerEl.querySelector('#btn-reset-pos');
+
+  if (btnModeMove) {
+    btnModeMove.classList.toggle('active', canvasMode === 'move');
+    btnModeMove.onclick = () => { if (onModeChange) onModeChange('move'); };
+  }
+  if (btnModeCrop) {
+    btnModeCrop.classList.toggle('active', canvasMode === 'crop');
+    btnModeCrop.onclick = () => { if (onModeChange) onModeChange('crop'); };
+  }
+  if (btnResetPos) {
+    btnResetPos.onclick = () => { if (onResetPosition) onResetPosition(); };
+  }
 
   // Render Multi-Photo Queue Bar
   if (queueBar && queueList) {
@@ -169,7 +204,7 @@ export function renderSheetPreview({
       const bgCSS = getBgStyle(photo.adjustments?.bgPreset);
 
       return `
-        <div class="sheet-cell filled ${guideType === 'border' ? 'cell-guide-border' : ''}" data-cell-index="${i}" title="Click and drag to reposition photo" style="
+        <div class="sheet-cell filled ${canvasMode === 'move' ? 'cell-mode-move' : ''} ${guideType === 'border' ? 'cell-guide-border' : ''}" data-cell-index="${i}" title="${canvasMode === 'move' ? 'Drag to position on paper' : 'Drag to adjust photo crop'}" style="
           position: absolute;
           left: ${cellPxX}px;
           top: ${cellPxY}px;
@@ -229,7 +264,7 @@ export function renderSheetPreview({
       const bgCSS = getBgStyle(photo.adjustments?.bgPreset);
 
       return `
-        <div class="sheet-cell filled ${guideType === 'border' ? 'cell-guide-border' : ''}" data-cell-index="${cell.index}" title="Click and drag to reposition photo" style="
+        <div class="sheet-cell filled ${canvasMode === 'move' ? 'cell-mode-move' : ''} ${guideType === 'border' ? 'cell-guide-border' : ''}" data-cell-index="${cell.index}" title="${canvasMode === 'move' ? 'Drag to position on paper' : 'Drag to adjust photo crop'}" style="
           position: absolute;
           left: ${cellPxX}px;
           top: ${cellPxY}px;
@@ -256,16 +291,143 @@ export function renderSheetPreview({
     }).join('');
   }
 
-  // Wire interactive drag-to-pan across filled cells
-  wireCellDragEvents(gridEl, photos, activePhotoIndex, distributeMode, onPanChange);
+  // ── Word-Style Selection Bounding Box ──────────────────────────────────────
+  const bW = tilingResult.boundsW || 0;
+  const bH = tilingResult.boundsH || 0;
+  const bX = tilingResult.boundsX !== undefined ? tilingResult.boundsX : (tilingResult.offsetX || 0);
+  const bY = tilingResult.boundsY !== undefined ? tilingResult.boundsY : (tilingResult.offsetY || 0);
+
+  const bPxX = Math.round(bX * 96 * scale);
+  const bPxY = Math.round(bY * 96 * scale);
+  const bPxW = Math.round(bW * 96 * scale);
+  const bPxH = Math.round(bH * 96 * scale);
+
+  if (boundsEl) {
+    if (bW > 0 && bH > 0 && photos.length > 0) {
+      boundsEl.style.display = 'block';
+      boundsEl.style.left = `${bPxX - 3}px`;
+      boundsEl.style.top = `${bPxY - 3}px`;
+      boundsEl.style.width = `${bPxW + 6}px`;
+      boundsEl.style.height = `${bPxH + 6}px`;
+      boundsEl.className = `sheet-layout-bounds ${canvasMode === 'move' ? 'mode-move' : ''}`;
+      boundsEl.innerHTML = `
+        <div class="bounds-border"></div>
+        <div class="bounds-drag-pill" title="Click and drag to position prints anywhere on the bond paper">
+          <span>✥</span> Drag to Move on Paper
+        </div>
+        <div class="bounds-corner tl"></div>
+        <div class="bounds-corner tr"></div>
+        <div class="bounds-corner bl"></div>
+        <div class="bounds-corner br"></div>
+      `;
+    } else {
+      boundsEl.style.display = 'none';
+    }
+  }
+
+  // Wire interactive canvas events (Move on paper + Crop/Pan)
+  wireCanvasInteractions({
+    sheetEl,
+    gridEl,
+    boundsEl,
+    photos,
+    activePhotoIndex,
+    distributeMode,
+    canvasMode,
+    scale,
+    onPanChange,
+    onLayoutMove,
+    onModeChange,
+  });
 }
 
 /**
- * Interactive Drag-to-Pan event handler for sheet preview cells
+ * Unified Canvas Interaction Manager:
+ * Handles both "Move Selection on Paper" and "Crop / Pan inside Cell"
  */
-function wireCellDragEvents(gridEl, photos, activePhotoIndex, distributeMode, onPanChange) {
+function wireCanvasInteractions({
+  sheetEl,
+  gridEl,
+  boundsEl,
+  photos,
+  activePhotoIndex,
+  distributeMode,
+  canvasMode,
+  scale,
+  onPanChange,
+  onLayoutMove,
+  onModeChange,
+}) {
   const cells = gridEl.querySelectorAll('.sheet-cell.filled');
 
+  // 1. Move on Paper dragging handler
+  const startPaperDrag = (startEvt) => {
+    startEvt.preventDefault();
+    const startX = startEvt.clientX ?? startEvt.touches?.[0]?.clientX;
+    const startY = startEvt.clientY ?? startEvt.touches?.[0]?.clientY;
+    if (startX === undefined || startY === undefined) return;
+
+    if (boundsEl) boundsEl.classList.add('dragging');
+    sheetEl.classList.add('dragging-paper');
+    document.body.style.cursor = 'move';
+    document.body.style.userSelect = 'none';
+
+    let lastDx = 0;
+    let lastDy = 0;
+
+    const handleMove = (moveEvt) => {
+      const curX = moveEvt.clientX ?? moveEvt.touches?.[0]?.clientX;
+      const curY = moveEvt.clientY ?? moveEvt.touches?.[0]?.clientY;
+      if (curX === undefined || curY === undefined) return;
+
+      lastDx = curX - startX;
+      lastDy = curY - startY;
+
+      // Realtime 60fps visual translation feedback
+      gridEl.style.transform = `translate(${lastDx}px, ${lastDy}px)`;
+      if (boundsEl) boundsEl.style.transform = `translate(${lastDx}px, ${lastDy}px)`;
+    };
+
+    const handleEnd = () => {
+      gridEl.style.transform = '';
+      if (boundsEl) {
+        boundsEl.style.transform = '';
+        boundsEl.classList.remove('dragging');
+      }
+      sheetEl.classList.remove('dragging-paper');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+
+      if (Math.abs(lastDx) > 2 || Math.abs(lastDy) > 2) {
+        const dInchesX = lastDx / (96 * scale);
+        const dInchesY = lastDy / (96 * scale);
+        if (onLayoutMove) {
+          onLayoutMove(dInchesX, dInchesY);
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', handleMove, { passive: false });
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+  };
+
+  // Wire bounding drag handle pill
+  if (boundsEl) {
+    const pill = boundsEl.querySelector('.bounds-drag-pill');
+    if (pill) {
+      pill.addEventListener('mousedown', startPaperDrag);
+      pill.addEventListener('touchstart', startPaperDrag, { passive: false });
+    }
+  }
+
+  // 2. Wire cells
   cells.forEach(cellEl => {
     const cellIdx = parseInt(cellEl.dataset.cellIndex, 10);
     const targetPhotoIdx = (distributeMode === 'distribute' && photos.length > 1)
@@ -274,16 +436,26 @@ function wireCellDragEvents(gridEl, photos, activePhotoIndex, distributeMode, on
     const targetPhoto = photos[targetPhotoIdx] || photos[0];
     if (!targetPhoto) return;
 
+    // Double click on a cell switches to Crop/Pan mode
+    cellEl.addEventListener('dblclick', () => {
+      if (onModeChange) onModeChange('crop');
+    });
+
     const handleStart = (e) => {
-      // Only primary mouse button or touch
       if (e.button !== undefined && e.button !== 0) return;
       if (e.target.closest('button, input, select, .cell-nametag-banner')) return;
 
+      // If in "move" mode OR holding Shift/Alt key: move entire layout on paper
+      if (canvasMode === 'move' || e.shiftKey || e.altKey) {
+        startPaperDrag(e);
+        return;
+      }
+
+      // Otherwise: Crop / Pan photo inside cell
+      e.preventDefault();
       const clientX = e.clientX ?? e.touches?.[0]?.clientX;
       const clientY = e.clientY ?? e.touches?.[0]?.clientY;
       if (clientX === undefined || clientY === undefined) return;
-
-      e.preventDefault();
 
       const startX = clientX;
       const startY = clientY;
@@ -306,7 +478,6 @@ function wireCellDragEvents(gridEl, photos, activePhotoIndex, distributeMode, on
         const dx = curX - startX;
         const dy = curY - startY;
 
-        // Sensitivity scaled to cell's rendered dimensions
         const dPanX = (dx / rect.width) * 100;
         const dPanY = (dy / rect.height) * 100;
 

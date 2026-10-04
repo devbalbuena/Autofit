@@ -34,8 +34,20 @@ export function calcTiling(printW, printH, sheetW, sheetH, count = null, options
   const gridW = cols * cellW + Math.max(0, cols - 1) * gap;
   const gridH = rows * cellH + Math.max(0, rows - 1) * gap;
 
-  const offsetX = Math.max(margin, (sheetW - gridW) / 2);
-  const offsetY = Math.max(margin, (sheetH - gridH) / 2);
+  const alignment = options.alignment || 'top-left'; // 'top-left' | 'center'
+  const customOffsetX = options.customOffsetX || 0;
+  const customOffsetY = options.customOffsetY || 0;
+
+  let baseOffsetX = margin;
+  let baseOffsetY = margin;
+
+  if (alignment === 'center') {
+    baseOffsetX = Math.max(margin, (sheetW - gridW) / 2);
+    baseOffsetY = Math.max(margin, (sheetH - gridH) / 2);
+  }
+
+  const offsetX = baseOffsetX + customOffsetX;
+  const offsetY = baseOffsetY + customOffsetY;
 
   // Generate explicit cell coordinates for deterministic rendering
   const cells = [];
@@ -59,6 +71,12 @@ export function calcTiling(printW, printH, sheetW, sheetH, count = null, options
 
   const coveragePercent = Math.round(((total * printW * printH) / (sheetW * sheetH)) * 100);
 
+  // Active filled bounds
+  const filledRows = Math.ceil(total / cols);
+  const filledCols = Math.min(total, cols);
+  const boundsW = total > 0 ? (filledCols * cellW + Math.max(0, filledCols - 1) * gap) : 0;
+  const boundsH = total > 0 ? (filledRows * cellH + Math.max(0, filledRows - 1) * gap) : 0;
+
   return {
     isCombo: false,
     cols,
@@ -72,6 +90,10 @@ export function calcTiling(printW, printH, sheetW, sheetH, count = null, options
     margin,
     gridW,
     gridH,
+    boundsX: offsetX,
+    boundsY: offsetY,
+    boundsW,
+    boundsH,
     offsetX,
     offsetY,
     cells,
@@ -125,9 +147,21 @@ export function calcComboTiling(comboItems, sheetW, sheetH, options = {}) {
   const boundsW = rawCells.reduce((max, c) => Math.max(max, c.x + c.w), 0);
   const boundsH = rawCells.reduce((max, c) => Math.max(max, c.y + c.h), 0);
 
-  // Center on sheet
-  const offsetX = Math.max(margin, (sheetW - boundsW) / 2);
-  const offsetY = Math.max(margin, (sheetH - boundsH) / 2);
+  // Alignment: default to top-left paper-saver mode
+  const alignment = options.alignment || 'top-left'; // 'top-left' | 'center'
+  const customOffsetX = options.customOffsetX || 0;
+  const customOffsetY = options.customOffsetY || 0;
+
+  let baseOffsetX = margin;
+  let baseOffsetY = margin;
+
+  if (alignment === 'center') {
+    baseOffsetX = Math.max(margin, (sheetW - boundsW) / 2);
+    baseOffsetY = Math.max(margin, (sheetH - boundsH) / 2);
+  }
+
+  const offsetX = baseOffsetX + customOffsetX;
+  const offsetY = baseOffsetY + customOffsetY;
 
   // Offset all cell positions
   const cells = rawCells.map((c, idx) => ({
@@ -148,6 +182,8 @@ export function calcComboTiling(comboItems, sheetW, sheetH, options = {}) {
     maxFit: totalCopies,
     gap,
     margin,
+    boundsX: offsetX,
+    boundsY: offsetY,
     boundsW,
     boundsH,
     offsetX,

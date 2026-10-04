@@ -81,10 +81,14 @@ function createDefaultAdjustments() {
 let state = {
   photos: [], // Array of { id, dataUrl, thumbUrl, name, dimensions, adjustments }
   activePhotoIndex: 0,
-  sizeId: DEFAULT_SIZE_ID,
+  sizeId: 'combo_4x2_8x1', // default to Combos tab
   sheetId: DEFAULT_SHEET,
   orientation: 'portrait', // 'portrait' | 'landscape'
-  count: null, // null = auto max fit
+  alignment: 'top-left', // 'top-left' | 'center'
+  customOffsetX: 0, // inches nudge
+  customOffsetY: 0, // inches nudge
+  canvasMode: 'move', // 'move' | 'crop'
+  count: 1, // default quantity is 1 for single sizes
   fitMode: 'cover',
   guideType: 'corners', // 'corners' | 'border' | 'none'
   margin: 0.20, // inches
@@ -278,19 +282,26 @@ document.getElementById('app').innerHTML = `
             </div>
 
             <div class="panel-section" id="section-copies">
-              <div class="panel-label">Copies</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div class="panel-label" style="margin-bottom:0">Copies Per Sheet</div>
+                <button class="btn-text-action" id="btn-count-max" title="Fill entire sheet with max copies">
+                  Max Fit
+                </button>
+              </div>
               <div class="count-row">
-                <span class="count-label">Per sheet</span>
-                <div class="count-controls">
+                <span class="count-label">Quantity:</span>
+                <div class="count-controls" style="flex:1;max-width:140px;">
                   <button class="count-btn" id="btn-count-down" title="Decrease copies (−)">−</button>
-                  <span class="count-value" id="count-display">Auto</span>
+                  <input type="number" id="count-input" class="count-input" min="1" max="99" value="1" title="Type number of copies" />
                   <button class="count-btn" id="btn-count-up" title="Increase copies (+)">+</button>
                 </div>
+                <span class="count-max-hint" id="count-max-hint">/ max 12</span>
               </div>
             </div>
 
             ${PrintSettingsHTML({
               orientation: state.orientation,
+              alignment: state.alignment,
               fitMode: state.fitMode,
               guideType: state.guideType,
               margin: state.margin,
@@ -327,9 +338,11 @@ const btnExportPdf    = document.getElementById('btn-export-pdf');
 const btnClear        = document.getElementById('btn-clear');
 const sheetWrap       = document.getElementById('sheet-wrap');
 const sheetSelect     = document.getElementById('sheet-select');
-const countDisplay    = document.getElementById('count-display');
+const countInput      = document.getElementById('count-input');
 const btnCountUp      = document.getElementById('btn-count-up');
 const btnCountDn      = document.getElementById('btn-count-down');
+const btnCountMax     = document.getElementById('btn-count-max');
+const countMaxHint    = document.getElementById('count-max-hint');
 const sectionCopies   = document.getElementById('section-copies');
 const printFrame      = document.getElementById('print-frame');
 const rightPanel      = document.getElementById('right-panel');
@@ -427,12 +440,18 @@ function getTiling() {
     return calcComboTiling(sizeObj.comboItems, sheetObj.w, sheetObj.h, {
       margin: state.margin,
       gap: state.gap,
+      alignment: state.alignment,
+      customOffsetX: state.customOffsetX,
+      customOffsetY: state.customOffsetY,
     });
   }
 
   return calcTiling(sizeObj.w, sizeObj.h, sheetObj.w, sheetObj.h, state.count, {
     margin: state.margin,
     gap: state.gap,
+    alignment: state.alignment,
+    customOffsetX: state.customOffsetX,
+    customOffsetY: state.customOffsetY,
   });
 }
 
@@ -444,12 +463,27 @@ function updateCountDisplay() {
   }
   if (sectionCopies) sectionCopies.style.display = 'block';
 
-  const tiling = getTiling();
-  if (state.count === null || state.count >= tiling.maxFit) {
-    state.count = null;
-    countDisplay.textContent = 'Auto';
-  } else {
-    countDisplay.textContent = state.count;
+  // Calculate tiling without count constraint to find max capacity
+  const tilingForMax = calcTiling(sizeObj.w, sizeObj.h, getSheetObject().w, getSheetObject().h, null, {
+    margin: state.margin,
+    gap: state.gap,
+  });
+
+  const maxFit = tilingForMax.maxFit;
+  if (countMaxHint) {
+    countMaxHint.textContent = `/ max ${maxFit}`;
+  }
+
+  if (state.count === null || state.count > maxFit) {
+    state.count = 1;
+  }
+  if (state.count < 1) {
+    state.count = 1;
+  }
+
+  if (countInput) {
+    countInput.max = maxFit;
+    countInput.value = state.count;
   }
 }
 
@@ -472,10 +506,26 @@ function updatePreview() {
     guideType: state.guideType,
     distributeMode: state.distributeMode,
     zoomFactor: state.zoomFactor,
+    canvasMode: state.canvasMode,
     onPanChange: (newPanX, newPanY, targetPhotoIdx) => {
       if (targetPhotoIdx === state.activePhotoIndex) {
         imageAdjustmentsController.updatePan(newPanX, newPanY);
       }
+    },
+    onLayoutMove: (dInchesX, dInchesY) => {
+      state.customOffsetX = Math.round((state.customOffsetX + dInchesX) * 100) / 100;
+      state.customOffsetY = Math.round((state.customOffsetY + dInchesY) * 100) / 100;
+      updatePreview();
+    },
+    onResetPosition: () => {
+      state.customOffsetX = 0;
+      state.customOffsetY = 0;
+      updatePreview();
+      toast('Reset layout to top-left margin', 'info', 1400);
+    },
+    onModeChange: (newMode) => {
+      state.canvasMode = newMode;
+      updatePreview();
     },
   });
 
@@ -562,7 +612,14 @@ if (btnZoomFit) {
 // ─── Size Selector Initialization ─────────────────────────────────────────────
 const sizeSelector = initSizeSelector(rightPanel, (newSizeId) => {
   state.sizeId = newSizeId;
-  state.count = null;
+  const newSize = getSizeById(newSizeId);
+  state.customOffsetX = 0;
+  state.customOffsetY = 0;
+
+  // Single sizes default to 1 piece by default
+  if (!newSize.isCombo) {
+    state.count = 1;
+  }
   updateCountDisplay();
   if (state.photos.length > 0) updatePreview();
 }, state.sizeId);
@@ -579,7 +636,13 @@ const imageAdjustmentsController = initImageAdjustments(rightPanel, (newAdjustme
 const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   if (settings.orientation !== undefined) {
     state.orientation = settings.orientation;
-    state.count = null;
+    state.customOffsetX = 0;
+    state.customOffsetY = 0;
+  }
+  if (settings.alignment !== undefined) {
+    state.alignment = settings.alignment;
+    state.customOffsetX = 0;
+    state.customOffsetY = 0;
   }
   if (settings.fitMode !== undefined) state.fitMode = settings.fitMode;
   if (settings.guideType !== undefined) state.guideType = settings.guideType;
@@ -591,6 +654,7 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   updateCountDisplay();
 }, {
   orientation: state.orientation,
+  alignment: state.alignment,
   fitMode: state.fitMode,
   guideType: state.guideType,
   margin: state.margin,
@@ -703,7 +767,9 @@ function loadSinglePhotoFromData({ dataUrl, name, dimensions, thumbUrl, sizeId }
 function clearPhotos() {
   state.photos = [];
   state.activePhotoIndex = 0;
-  state.count = null;
+  state.count = 1;
+  state.customOffsetX = 0;
+  state.customOffsetY = 0;
   state.zoomFactor = 1.0;
 
   dropZone.style.display = '';
@@ -1008,19 +1074,52 @@ sheetSelect.addEventListener('change', () => {
 
 updateDeleteCustomSheetBtn();
 
+if (countInput) {
+  countInput.addEventListener('input', () => {
+    let val = parseInt(countInput.value, 10);
+    const sizeObj = getSizeById(state.sizeId);
+    const tilingForMax = calcTiling(sizeObj.w, sizeObj.h, getSheetObject().w, getSheetObject().h, null, {
+      margin: state.margin,
+      gap: state.gap,
+    });
+    if (isNaN(val) || val < 1) val = 1;
+    if (val > tilingForMax.maxFit) val = tilingForMax.maxFit;
+    state.count = val;
+    countInput.value = val;
+    if (state.photos.length > 0) updatePreview();
+  });
+}
+
+if (btnCountMax) {
+  btnCountMax.addEventListener('click', () => {
+    const sizeObj = getSizeById(state.sizeId);
+    const tilingForMax = calcTiling(sizeObj.w, sizeObj.h, getSheetObject().w, getSheetObject().h, null, {
+      margin: state.margin,
+      gap: state.gap,
+    });
+    state.count = tilingForMax.maxFit;
+    if (countInput) countInput.value = state.count;
+    if (state.photos.length > 0) updatePreview();
+    toast(`Filled sheet with maximum ${state.count} copies`, 'info', 1600);
+  });
+}
+
 btnCountUp.addEventListener('click', () => {
-  const tiling = getTiling();
-  const current = state.count === null ? tiling.maxFit : state.count;
-  state.count = current >= tiling.maxFit ? null : current + 1;
-  updateCountDisplay();
+  const sizeObj = getSizeById(state.sizeId);
+  const tilingForMax = calcTiling(sizeObj.w, sizeObj.h, getSheetObject().w, getSheetObject().h, null, {
+    margin: state.margin,
+    gap: state.gap,
+  });
+  const current = state.count || 1;
+  state.count = Math.min(current + 1, tilingForMax.maxFit);
+  if (countInput) countInput.value = state.count;
   if (state.photos.length > 0) updatePreview();
 });
 
 btnCountDn.addEventListener('click', () => {
-  const tiling = getTiling();
-  const current = state.count === null ? tiling.maxFit : state.count;
+  const current = state.count || 1;
   state.count = Math.max(current - 1, 1);
-  updateCountDisplay();
+  if (countInput) countInput.value = state.count;
   if (state.photos.length > 0) updatePreview();
 });
 

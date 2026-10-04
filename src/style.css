@@ -1777,6 +1777,10 @@ img {
   cursor: grab;
 }
 
+.sheet-cell.filled.cell-mode-move {
+  cursor: move;
+}
+
 .sheet-cell.filled:active,
 .sheet-cell.filled.dragging {
   cursor: grabbing !important;
@@ -1788,4 +1792,161 @@ img {
   -webkit-user-drag: none;
   user-drag: none;
 }
+
+/* Typeable Copies Input */
+.count-input {
+  width: 46px;
+  height: 26px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xs);
+  color: var(--ink-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: all 0.15s ease;
+  padding: 0 4px;
+  -moz-appearance: textfield;
+}
+
+.count-input::-webkit-outer-spin-button,
+.count-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.count-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.count-max-hint {
+  font-size: 11px;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* Word-Style Selection Bounding Box around layout prints */
+.sheet-layout-bounds {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 9;
+  border-radius: 2px;
+}
+
+.sheet-layout-bounds.mode-move {
+  pointer-events: auto;
+  cursor: move;
+}
+
+.sheet-layout-bounds.mode-move:active,
+.sheet-layout-bounds.dragging {
+  cursor: grabbing !important;
+}
+
+.bounds-border {
+  position: absolute;
+  inset: 0;
+  border: 1.5px dashed rgba(59, 130, 246, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(59, 130, 246, 0.25);
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+.bounds-drag-pill {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-gradient);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 12px rgba(59, 130, 246, 0.4);
+  white-space: nowrap;
+  cursor: move;
+  pointer-events: auto;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  z-index: 10;
+}
+
+.bounds-drag-pill:hover {
+  filter: brightness(1.15);
+  transform: translateX(-50%) scale(1.04);
+}
+
+.bounds-drag-pill:active {
+  cursor: grabbing;
+}
+
+.bounds-corner {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: #ffffff;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.bounds-corner.tl { top: -4px; left: -4px; }
+.bounds-corner.tr { top: -4px; right: -4px; }
+.bounds-corner.bl { bottom: -4px; left: -4px; }
+.bounds-corner.br { bottom: -4px; right: -4px; }
+
+/* Canvas Mode Switcher in Floating Bar */
+.canvas-mode-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 2px;
+}
+
+.canvas-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.canvas-mode-btn:hover {
+  color: var(--ink-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.canvas-mode-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.canvas-controls-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-medium);
+  margin: 0 4px;
+}
+
 

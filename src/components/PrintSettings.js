@@ -8,6 +8,7 @@ import { formatDimension } from '../lib/sizes.js';
 
 export function PrintSettingsHTML({
   orientation = 'portrait', // 'portrait' | 'landscape'
+  alignment = 'top-left', // 'top-left' | 'center'
   fitMode = 'cover',
   guideType = 'corners', // 'corners' | 'border' | 'none'
   margin = 0.2,
@@ -26,6 +27,19 @@ export function PrintSettingsHTML({
           </button>
           <button class="orientation-btn ${orientation === 'landscape' ? 'active' : ''}" data-orientation="landscape" title="Landscape Feed (Horizontal)">
             <span>↔</span> Landscape
+          </button>
+        </div>
+      </div>
+
+      <!-- Sheet Placement / Alignment -->
+      <div class="panel-section">
+        <div class="panel-label">Sheet Placement (Paper Saver)</div>
+        <div class="orientation-toggle" id="alignment-toggle">
+          <button class="orientation-btn ${alignment === 'top-left' ? 'active' : ''}" data-alignment="top-left" title="Start at top-left margin to save unprinted paper below">
+            <span>⬆</span> Top-Left (Paper Saver)
+          </button>
+          <button class="orientation-btn ${alignment === 'center' ? 'active' : ''}" data-alignment="center" title="Center layout in middle of sheet">
+            <span>⬍</span> Center Sheet
           </button>
         </div>
       </div>
@@ -114,6 +128,7 @@ export function PrintSettingsHTML({
  */
 export function initPrintSettings(containerEl, onChange, currentState = {}) {
   const toggleOrientation = containerEl.querySelector('#orientation-toggle');
+  const toggleAlignment   = containerEl.querySelector('#alignment-toggle');
   const toggleFit         = containerEl.querySelector('#fit-mode-toggle');
   const toggleGuide       = containerEl.querySelector('#guide-type-toggle');
   const sliderMargin      = containerEl.querySelector('#slider-sheet-margin');
@@ -130,6 +145,16 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
         toggleOrientation.querySelectorAll('.orientation-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         onChange({ orientation: btn.dataset.orientation });
+      });
+    });
+  }
+
+  if (toggleAlignment) {
+    toggleAlignment.querySelectorAll('.orientation-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        toggleAlignment.querySelectorAll('.orientation-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        onChange({ alignment: btn.dataset.alignment });
       });
     });
   }

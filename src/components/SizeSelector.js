@@ -28,8 +28,7 @@ export function SizeSelectorHTML() {
 
       <!-- Categories Tabs -->
       <div class="size-category-tabs" id="size-category-tabs">
-        <button class="cat-tab active" data-cat="ALL">All</button>
-        <button class="cat-tab" data-cat="${SIZE_CATEGORIES.COMBO}">Combos</button>
+        <button class="cat-tab active" data-cat="${SIZE_CATEGORIES.COMBO}">Combos</button>
         <button class="cat-tab" data-cat="${SIZE_CATEGORIES.ID}">ID</button>
         <button class="cat-tab" data-cat="${SIZE_CATEGORIES.PHOTO}">Photo</button>
         <button class="cat-tab" data-cat="${SIZE_CATEGORIES.LARGE}">Doc</button>
@@ -70,7 +69,8 @@ export function SizeSelectorHTML() {
  * Initialize size selector with category filtering, search, view mode toggle, and custom sizing
  */
 export function initSizeSelector(containerEl, onSelect, currentSizeId) {
-  let activeCategory = 'ALL';
+  const initFound = getSizeById(currentSizeId);
+  let activeCategory = initFound?.category || SIZE_CATEGORIES.COMBO;
   let searchQuery = '';
   let viewMode = 'grid'; // 'grid' | 'list'
   let selectedId = currentSizeId;
@@ -88,11 +88,16 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
   const custH           = containerEl.querySelector('#cust-h');
   const custUnit        = containerEl.querySelector('#cust-unit');
 
+  // Sync initial tab active state
+  if (tabsEl) {
+    tabsEl.querySelectorAll('.cat-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.cat === activeCategory);
+    });
+  }
+
   function getFilteredSizes() {
     const allSizes = getAllSizes();
-    let filtered = activeCategory === 'ALL'
-      ? allSizes
-      : allSizes.filter(s => s.category === activeCategory);
+    let filtered = allSizes.filter(s => s.category === activeCategory);
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -113,7 +118,7 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
       // ── COMPACT LIST VIEW ──
       let html = `<div class="size-compact-list" id="size-compact-list">`;
 
-      if (activeCategory === SIZE_CATEGORIES.CUSTOM || activeCategory === 'ALL') {
+      if (activeCategory === SIZE_CATEGORIES.CUSTOM) {
         html += `
           <div class="size-compact-item" id="item-add-custom" style="border-style:dashed;color:var(--accent-hover)">
             <span style="font-weight:700">➕ Add Custom Size...</span>
@@ -140,7 +145,7 @@ export function initSizeSelector(containerEl, onSelect, currentSizeId) {
       // ── GRID VIEW ──
       let html = `<div class="size-grid" id="size-grid">`;
 
-      if (activeCategory === SIZE_CATEGORIES.CUSTOM || activeCategory === 'ALL') {
+      if (activeCategory === SIZE_CATEGORIES.CUSTOM) {
         html += `
           <div class="size-card size-card-add" id="card-add-custom" tabindex="0" role="button" title="Create Custom Size">
             <div style="font-size:18px">➕</div>
