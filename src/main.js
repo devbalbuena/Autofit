@@ -14,7 +14,7 @@ import {
   removeCustomSheet,
   SIZE_CATEGORIES
 } from './lib/sizes.js';
-import { calcTiling, calcComboTiling, calcMultiCustomerTiling } from './lib/tiler.js';
+import { calcTiling, calcComboTiling, calcMultiCustomerTiling, calculatePaperEfficiency } from './lib/tiler.js';
 import { saveToHistory, generateThumbnail } from './lib/history.js';
 import { extractImageFromClipboard, fileToDataUrl, safeFileName, getImageDimensions } from './lib/clipboard.js';
 import { toast } from './lib/toast.js';
@@ -604,6 +604,13 @@ function updatePreview() {
       ? `${state.photos[0].dimensions.width}×${state.photos[0].dimensions.height}`
       : `${state.photos.length} Customers (${tiling.total} IDs)`;
   }
+
+  // Update real-time paper efficiency and economics
+  const eff = calculatePaperEfficiency(sheetObj.w, sheetObj.h, tiling.cells);
+  printSettingsController.updateEfficiency({
+    ...eff,
+    totalPhotos: tiling.total || 0,
+  });
 }
 
 // Wire Multi-photo Queue Events
@@ -920,6 +927,13 @@ function clearPhotos() {
   btnClear.disabled = true;
   if (photoStatusText) photoStatusText.textContent = 'Ready';
   printSettingsController.updatePhotoCount(0);
+  printSettingsController.updateEfficiency({
+    sheetArea: 0,
+    usedArea: 0,
+    utilizationPercent: 0,
+    unusedPercent: 100,
+    totalPhotos: 0,
+  });
   updateCountDisplay();
 }
 

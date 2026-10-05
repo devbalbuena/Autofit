@@ -1,6 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcTiling, calcComboTiling, calcMultiCustomerTiling } from '../src/lib/tiler.js';
+import {
+  calcTiling,
+  calcComboTiling,
+  calcMultiCustomerTiling,
+  calculatePaperEfficiency,
+  calculatePrintEconomics
+} from '../src/lib/tiler.js';
 
 describe('calcTiling - Single Size Grid Calculator', () => {
   it('should calculate standard 2x2 on A4 sheet', () => {
@@ -75,5 +81,40 @@ describe('calcMultiCustomerTiling - Gang-Run Batch Calculator', () => {
     assert.equal(twoByTwos[0].photoIndex, 0); // Alice
     assert.equal(twoByTwos[1].photoIndex, 0); // Alice (second copy)
     assert.equal(twoByTwos[2].photoIndex, 2); // Charlie
+  });
+});
+
+describe('calculatePaperEfficiency - Space Utilization Metrics', () => {
+  it('should compute exact area and utilization percentage', () => {
+    const cells = [
+      { w: 2, h: 2, filled: true },
+      { w: 2, h: 2, filled: true },
+      { w: 1, h: 1, filled: true },
+    ];
+    // sheet: 10 x 10 = 100 sq in
+    // used: 4 + 4 + 1 = 9 sq in -> 9%
+    const eff = calculatePaperEfficiency(10, 10, cells);
+    assert.equal(eff.sheetArea, 100);
+    assert.equal(eff.usedArea, 9);
+    assert.equal(eff.unusedArea, 91);
+    assert.equal(eff.utilizationPercent, 9);
+    assert.equal(eff.unusedPercent, 91);
+  });
+
+  it('should handle empty or invalid sheet gracefully', () => {
+    const eff = calculatePaperEfficiency(0, 0, []);
+    assert.equal(eff.utilizationPercent, 0);
+    assert.equal(eff.unusedPercent, 100);
+  });
+});
+
+describe('calculatePrintEconomics - Print Cost & Revenue Calculator', () => {
+  it('should compute gross revenue and net profit correctly', () => {
+    // 12 copies, 5.00 paper cost, 50.00 price per copy
+    const econ = calculatePrintEconomics(12, 5.0, 50.0);
+    assert.equal(econ.paperCost, 5.0);
+    assert.equal(econ.grossRevenue, 600.0);
+    assert.equal(econ.netProfit, 595.0);
+    assert.ok(econ.marginPercent > 90);
   });
 });

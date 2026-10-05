@@ -154,6 +154,55 @@ export function PrintSettingsHTML({
           </button>
         </div>
       </div>
+
+      <!-- Paper Space Efficiency & Cost Estimator -->
+      <div class="panel-section" id="section-paper-efficiency">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div class="panel-label" style="margin-bottom:0">Paper Space Efficiency & Cost</div>
+          <span class="efficiency-badge" id="efficiency-badge-percent" style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; background:rgba(16,185,129,0.15); color:#10b981;">0% Utilized</span>
+        </div>
+        
+        <div class="efficiency-meter-bar" style="height:6px; background:var(--bg-card); border-radius:4px; overflow:hidden; margin-bottom:8px; border:1px solid var(--border-color);">
+          <div class="efficiency-meter-fill" id="efficiency-meter-fill" style="width:0%; height:100%; background:#10b981; transition:width 0.3s ease;"></div>
+        </div>
+
+        <div class="efficiency-stats-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; margin-bottom:8px;">
+          <div style="background:var(--bg-card); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color);">
+            <div style="color:var(--text-muted); font-size:10px;">Sheet Area</div>
+            <div id="stat-sheet-area" style="font-weight:600; color:var(--text-main);">0 sq in</div>
+          </div>
+          <div style="background:var(--bg-card); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color);">
+            <div style="color:var(--text-muted); font-size:10px;">Photos Covered</div>
+            <div id="stat-used-area" style="font-weight:600; color:var(--text-main);">0 sq in</div>
+          </div>
+          <div style="background:var(--bg-card); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color);">
+            <div style="color:var(--text-muted); font-size:10px;">Trim Margins (Saved)</div>
+            <div id="stat-unused-percent" style="font-weight:600; color:#10b981;">100% blank</div>
+          </div>
+          <div style="background:var(--bg-card); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color);">
+            <div style="color:var(--text-muted); font-size:10px;">Printed Photos</div>
+            <div id="stat-total-photos" style="font-weight:600; color:var(--text-main);">0 pcs</div>
+          </div>
+        </div>
+
+        <!-- Quick Economics Estimator -->
+        <div class="economics-drawer" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:8px 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:11px; font-weight:700; color:var(--text-main);">💵 Print Cost & Profit</span>
+            <span id="econ-net-profit" style="font-size:11px; font-weight:800; color:#10b981;">₱0.00 profit</span>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center; font-size:11px;">
+            <label style="flex:1; display:flex; flex-direction:column; gap:2px; color:var(--text-muted);">
+              <span style="font-size:9.5px;">Paper Cost (₱)</span>
+              <input type="number" id="input-paper-cost" min="0" step="0.5" value="5.00" style="padding:4px 6px; font-size:11px; background:var(--bg-canvas); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); width:100%; box-sizing:border-box;" />
+            </label>
+            <label style="flex:1; display:flex; flex-direction:column; gap:2px; color:var(--text-muted);">
+              <span style="font-size:9.5px;">Price / Photo (₱)</span>
+              <input type="number" id="input-price-per-id" min="0" step="5" value="30.00" style="padding:4px 6px; font-size:11px; background:var(--bg-canvas); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); width:100%; box-sizing:border-box;" />
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -340,10 +389,47 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
     });
   }
 
+  const inputPaperCost = containerEl.querySelector('#input-paper-cost');
+  const inputPricePerId = containerEl.querySelector('#input-price-per-id');
+  const badgePercent = containerEl.querySelector('#efficiency-badge-percent');
+  const meterFill = containerEl.querySelector('#efficiency-meter-fill');
+  const statSheetArea = containerEl.querySelector('#stat-sheet-area');
+  const statUsedArea = containerEl.querySelector('#stat-used-area');
+  const statUnusedPercent = containerEl.querySelector('#stat-unused-percent');
+  const statTotalPhotos = containerEl.querySelector('#stat-total-photos');
+  const econNetProfit = containerEl.querySelector('#econ-net-profit');
+
+  let currentTotalPhotos = 0;
+
+  function recalculateEconomics() {
+    if (!econNetProfit) return;
+    const paperCost = parseFloat(inputPaperCost?.value || '0') || 0;
+    const pricePerId = parseFloat(inputPricePerId?.value || '0') || 0;
+    const gross = currentTotalPhotos * pricePerId;
+    const profit = Math.max(0, gross - paperCost);
+    econNetProfit.textContent = `₱${profit.toFixed(2)} profit`;
+  }
+
+  if (inputPaperCost) inputPaperCost.addEventListener('input', recalculateEconomics);
+  if (inputPricePerId) inputPricePerId.addEventListener('input', recalculateEconomics);
+
   return {
     updatePhotoCount: (count) => {
       const sec = containerEl.querySelector('#section-multi-photo');
       if (sec) sec.style.display = count > 1 ? 'block' : 'none';
+    },
+    updateEfficiency: ({ sheetArea = 0, usedArea = 0, utilizationPercent = 0, unusedPercent = 100, totalPhotos = 0 } = {}) => {
+      currentTotalPhotos = totalPhotos;
+      if (badgePercent) badgePercent.textContent = `${utilizationPercent}% Utilized`;
+      if (meterFill) {
+        meterFill.style.width = `${Math.min(100, utilizationPercent)}%`;
+        meterFill.style.background = utilizationPercent > 70 ? '#10b981' : (utilizationPercent > 40 ? '#f59e0b' : '#64748b');
+      }
+      if (statSheetArea) statSheetArea.textContent = `${sheetArea} sq in`;
+      if (statUsedArea) statUsedArea.textContent = `${usedArea} sq in`;
+      if (statUnusedPercent) statUnusedPercent.textContent = `${unusedPercent}% blank`;
+      if (statTotalPhotos) statTotalPhotos.textContent = `${totalPhotos} pcs`;
+      recalculateEconomics();
     },
     refreshUnits: () => {
       if (sliderMargin && valMargin) {

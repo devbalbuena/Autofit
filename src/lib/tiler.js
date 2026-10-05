@@ -324,3 +324,55 @@ export function fitScale(sheetW, sheetH, containerW, containerH, padding = 64) {
   const sheetPxH = sheetH * SCREEN_DPI;
   return Math.min(maxW / sheetPxW, maxH / sheetPxH, 1.2);
 }
+
+/**
+ * Calculate paper space efficiency and area metrics
+ * @param {number} sheetW - Sheet width in inches
+ * @param {number} sheetH - Sheet height in inches
+ * @param {Array} cells - Tiling cells array
+ * @returns {object} { sheetArea, usedArea, unusedArea, utilizationPercent, unusedPercent }
+ */
+export function calculatePaperEfficiency(sheetW, sheetH, cells = []) {
+  const sheetArea = sheetW * sheetH;
+  if (!sheetArea || sheetArea <= 0) {
+    return { sheetArea: 0, usedArea: 0, unusedArea: 0, utilizationPercent: 0, unusedPercent: 100 };
+  }
+
+  const filledCells = (cells || []).filter(c => c && c.filled);
+  const usedArea = filledCells.reduce((sum, c) => sum + ((c.w || 0) * (c.h || 0)), 0);
+  const clampedUsed = Math.min(sheetArea, usedArea);
+  const unusedArea = Math.max(0, sheetArea - clampedUsed);
+  const utilizationPercent = Math.round((clampedUsed / sheetArea) * 1000) / 10;
+  const unusedPercent = Math.round((100 - utilizationPercent) * 10) / 10;
+
+  return {
+    sheetArea: Math.round(sheetArea * 100) / 100,
+    usedArea: Math.round(clampedUsed * 100) / 100,
+    unusedArea: Math.round(unusedArea * 100) / 100,
+    utilizationPercent,
+    unusedPercent,
+  };
+}
+
+/**
+ * Calculate estimated print job economics
+ * @param {number} itemCount - Number of printed photo copies
+ * @param {number} paperCost - Cost of 1 sheet (e.g. 5.00)
+ * @param {number} pricePerItem - Retail price per photo copy (e.g. 40.00)
+ * @returns {object} { paperCost, grossRevenue, netProfit, marginPercent }
+ */
+export function calculatePrintEconomics(itemCount = 0, paperCost = 5.0, pricePerItem = 40.0) {
+  const count = Math.max(0, itemCount);
+  const cost = Math.max(0, paperCost);
+  const price = Math.max(0, pricePerItem);
+  const grossRevenue = Math.round(count * price * 100) / 100;
+  const netProfit = Math.round((grossRevenue - cost) * 100) / 100;
+  const marginPercent = grossRevenue > 0 ? Math.round((netProfit / grossRevenue) * 100) : 0;
+
+  return {
+    paperCost: cost,
+    grossRevenue,
+    netProfit,
+    marginPercent,
+  };
+}
