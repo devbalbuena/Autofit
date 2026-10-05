@@ -179,7 +179,15 @@ export function renderSheetPreview({
           <div class="customer-card-body">
             <div class="customer-card-header">
               <input type="text" class="customer-card-name-input" data-cust-idx="${idx}" value="${p.name || `Customer #${idx + 1}`}" title="Click to rename customer" />
-              ${photos.length > 1 ? `<button class="btn-queue-remove" data-remove-idx="${idx}" title="Remove Customer">&times;</button>` : ''}
+              <div class="customer-card-header-actions" style="display:flex;align-items:center;gap:3px">
+                ${photos.length > 1 ? `
+                  <div class="customer-reorder-group" style="display:flex;gap:1px">
+                    <button class="btn-cust-reorder" data-reorder-dir="prev" data-cust-idx="${idx}" title="Move customer left" ${idx === 0 ? 'disabled style="opacity:0.25;cursor:default"' : ''}>◀</button>
+                    <button class="btn-cust-reorder" data-reorder-dir="next" data-cust-idx="${idx}" title="Move customer right" ${idx === photos.length - 1 ? 'disabled style="opacity:0.25;cursor:default"' : ''}>▶</button>
+                  </div>
+                  <button class="btn-queue-remove" data-remove-idx="${idx}" title="Remove Customer">&times;</button>
+                ` : ''}
+              </div>
             </div>
             <div class="customer-card-controls">
               <select class="customer-size-select" data-cust-idx="${idx}" title="Select ID/Print Size for Customer #${idx + 1}">

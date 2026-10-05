@@ -662,6 +662,25 @@ function wireQueueEvents() {
     });
   });
 
+  const reorderBtns = sheetWrap.querySelectorAll('.btn-cust-reorder');
+  reorderBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.custIdx, 10);
+      const dir = btn.dataset.reorderDir;
+      const targetIdx = dir === 'prev' ? idx - 1 : idx + 1;
+      if (targetIdx >= 0 && targetIdx < state.photos.length) {
+        const temp = state.photos[idx];
+        state.photos[idx] = state.photos[targetIdx];
+        state.photos[targetIdx] = temp;
+        if (state.activePhotoIndex === idx) state.activePhotoIndex = targetIdx;
+        else if (state.activePhotoIndex === targetIdx) state.activePhotoIndex = idx;
+        updatePreview();
+        toast(`Shifted customer order position`, 'info', 1200);
+      }
+    });
+  });
+
   const btnAddMore = sheetWrap.querySelector('#btn-add-more-photos');
   if (btnAddMore) {
     btnAddMore.onclick = () => fileInput.click();

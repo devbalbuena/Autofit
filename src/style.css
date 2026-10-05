@@ -2122,6 +2122,24 @@ img {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.btn-cust-reorder {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-secondary);
+  font-size: 8.5px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-cust-reorder:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  border-color: var(--border-medium);
+  color: var(--ink-primary);
+}
+
 .btn-queue-remove {
   background: transparent;
   border: none;
