@@ -5,6 +5,8 @@
  * ID Name Tag banner, and ID background presets.
  */
 
+import { toast } from '../lib/toast.js';
+
 export function ImageAdjustmentsHTML(state = {}) {
   const brightness = state.brightness ?? 100;
   const contrast   = state.contrast ?? 100;
@@ -110,9 +112,15 @@ export function ImageAdjustmentsHTML(state = {}) {
       </div>
 
       <div class="adjust-controls-grid">
-        <div class="adjust-actions-row" style="margin-bottom:8px">
-          <button class="adjust-action-btn ${isBW ? 'active' : ''}" id="btn-toggle-bw" title="Toggle Black & White" style="flex:1">
-            <span>⚫/⚪</span> Black & White
+        <div class="adjust-actions-row" style="margin-bottom:8px;gap:5px">
+          <button class="adjust-action-btn" id="btn-auto-enhance" title="One-click print auto-enhance (brightness, contrast & clarity)" style="flex:1;background:var(--accent-soft);color:var(--accent-hover);border-color:var(--border-focus)">
+            <span>✨</span> Auto-Enhance
+          </button>
+          <button class="adjust-action-btn" id="btn-tone-warm" title="Warm skin tone portrait balancing" style="padding:6px 8px">
+            <span>☀️</span> Warm
+          </button>
+          <button class="adjust-action-btn ${isBW ? 'active' : ''}" id="btn-toggle-bw" title="Toggle Black & White" style="padding:6px 8px">
+            <span>⚫/⚪</span> B&W
           </button>
         </div>
 
@@ -257,6 +265,8 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
   const valContr     = containerEl.querySelector('#val-contrast');
   const valSat       = containerEl.querySelector('#val-saturation');
   const btnBW        = containerEl.querySelector('#btn-toggle-bw');
+  const btnAutoEnhance = containerEl.querySelector('#btn-auto-enhance');
+  const btnWarmTone    = containerEl.querySelector('#btn-tone-warm');
   const btnRotateCW  = containerEl.querySelector('#btn-rotate-cw');
   const btnRotateCCW = containerEl.querySelector('#btn-rotate-ccw');
   const sliderTilt   = containerEl.querySelector('#slider-tilt');
@@ -266,6 +276,44 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
   const btnFlipV     = containerEl.querySelector('#btn-flip-v');
   const btnReset     = containerEl.querySelector('#btn-adjust-reset');
   const groupSat     = containerEl.querySelector('#group-saturation');
+
+  if (btnAutoEnhance) {
+    btnAutoEnhance.addEventListener('click', () => {
+      state.brightness = 108;
+      state.contrast   = 112;
+      state.saturation = 110;
+      state.isBW       = false;
+      if (sliderBright) sliderBright.value = 108;
+      if (sliderContr)  sliderContr.value = 112;
+      if (sliderSat)    sliderSat.value = 110;
+      if (valBright)    valBright.textContent = '108%';
+      if (valContr)     valContr.textContent = '112%';
+      if (valSat)       valSat.textContent = '110%';
+      if (btnBW)        btnBW.classList.remove('active');
+      if (groupSat)     groupSat.style.opacity = '1';
+      notify();
+      toast('Applied Print Auto-Enhance ✨', 'success', 1600);
+    });
+  }
+
+  if (btnWarmTone) {
+    btnWarmTone.addEventListener('click', () => {
+      state.brightness = 105;
+      state.contrast   = 106;
+      state.saturation = 118;
+      state.isBW       = false;
+      if (sliderBright) sliderBright.value = 105;
+      if (sliderContr)  sliderContr.value = 106;
+      if (sliderSat)    sliderSat.value = 118;
+      if (valBright)    valBright.textContent = '105%';
+      if (valContr)     valContr.textContent = '106%';
+      if (valSat)       valSat.textContent = '118%';
+      if (btnBW)        btnBW.classList.remove('active');
+      if (groupSat)     groupSat.style.opacity = '1';
+      notify();
+      toast('Applied Warm Portrait Tone ☀️', 'success', 1600);
+    });
+  }
 
   const sliderZoom   = containerEl.querySelector('#slider-zoom');
   const sliderPanX   = containerEl.querySelector('#slider-pan-x');
