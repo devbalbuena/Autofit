@@ -1292,3 +1292,14 @@ window.addEventListener('resize', () => {
 
 // ─── Initial Init ─────────────────────────────────────────────────────────────
 updateCountDisplay();
+
+// ─── PWA Service Worker Registration ──────────────────────────────────────────
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      console.log('AutoFit PWA offline service worker registered:', reg.scope);
+    }).catch((err) => {
+      console.warn('AutoFit service worker registration notice:', err);
+    });
+  });
+}
