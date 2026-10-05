@@ -56,12 +56,13 @@ export function SheetPreviewHTML() {
 /**
  * Generate Corner Crop Hairline HTML
  */
-function renderCornerMarksHTML() {
+function renderCornerMarksHTML(guideColor = '#000000') {
+  const borderStyle = `style="border-color:${guideColor};"`;
   return `
-    <div class="crop-corner top-left"></div>
-    <div class="crop-corner top-right"></div>
-    <div class="crop-corner bottom-left"></div>
-    <div class="crop-corner bottom-right"></div>
+    <div class="crop-corner top-left" ${borderStyle}></div>
+    <div class="crop-corner top-right" ${borderStyle}></div>
+    <div class="crop-corner bottom-left" ${borderStyle}></div>
+    <div class="crop-corner bottom-right" ${borderStyle}></div>
   `;
 }
 
@@ -125,6 +126,7 @@ export function renderSheetPreview({
   activePhotoIndex = 0,
   fitMode = 'cover',
   guideType = 'corners',
+  guideColor = '#000000',
   distributeMode = 'repeat',
   zoomFactor = 1.0,
   canvasMode = 'move', // 'move' | 'crop'
@@ -251,9 +253,10 @@ export function renderSheetPreview({
           width: ${cellPxW}px;
           height: ${cellPxH}px;
           overflow: hidden;
+          ${guideType === 'border' ? `outline: 1px dashed ${guideColor};` : ''}
           ${bgCSS}
         ">
-          ${guideType === 'corners' ? renderCornerMarksHTML() : ''}
+          ${guideType === 'corners' ? renderCornerMarksHTML(guideColor) : ''}
           ${photo.adjustments?.showOval ? renderOvalGuideHTML() : ''}
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
             <img src="${photo.dataUrl}" alt="${cell.customerName}" style="
@@ -298,9 +301,10 @@ export function renderSheetPreview({
           width: ${cellPxW}px;
           height: ${cellPxH}px;
           overflow: hidden;
+          ${guideType === 'border' ? `outline: 1px dashed ${guideColor};` : ''}
           ${bgCSS}
         ">
-          ${guideType === 'corners' ? renderCornerMarksHTML() : ''}
+          ${guideType === 'corners' ? renderCornerMarksHTML(guideColor) : ''}
           ${photo.adjustments?.showOval ? renderOvalGuideHTML() : ''}
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
             <img src="${photo.dataUrl}" alt="combo ${cell.name}" style="
@@ -358,9 +362,10 @@ export function renderSheetPreview({
           width: ${cellPxW}px;
           height: ${cellPxH}px;
           overflow: hidden;
+          ${guideType === 'border' ? `outline: 1px dashed ${guideColor};` : ''}
           ${bgCSS}
         ">
-          ${guideType === 'corners' ? renderCornerMarksHTML() : ''}
+          ${guideType === 'corners' ? renderCornerMarksHTML(guideColor) : ''}
           ${photo.adjustments?.showOval ? renderOvalGuideHTML() : ''}
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
             <img src="${photo.dataUrl}" alt="copy ${cell.index + 1}" style="

@@ -11,6 +11,7 @@ export function PrintSettingsHTML({
   alignment = 'top-left', // 'top-left' | 'center'
   fitMode = 'cover',
   guideType = 'corners', // 'corners' | 'border' | 'none'
+  guideColor = '#000000',
   margin = 0.2,
   gap = 0.05,
   distributeMode = 'repeat', // 'repeat' | 'distribute'
@@ -70,6 +71,11 @@ export function PrintSettingsHTML({
           <button class="fit-btn ${guideType === 'none' ? 'active' : ''}" data-guide="none" title="No guides">
             None
           </button>
+        </div>
+        <div class="presets-row" id="guide-color-presets" style="margin-top:6px;${guideType === 'none' ? 'display:none;' : ''}">
+          <button class="preset-chip ${guideColor === '#000000' ? 'active' : ''}" data-color="#000000" title="High-contrast black lines">⚫ Black</button>
+          <button class="preset-chip ${guideColor === '#64748b' ? 'active' : ''}" data-color="#64748b" title="Medium-contrast gray lines">🔘 Gray</button>
+          <button class="preset-chip ${guideColor === '#cbd5e1' ? 'active' : ''}" data-color="#cbd5e1" title="Subtle light hairline for clean trimming">⚪ Light</button>
         </div>
       </div>
  
@@ -201,13 +207,28 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
   }
 
   if (toggleGuide) {
+    const guideColorPresets = containerEl.querySelector('#guide-color-presets');
     toggleGuide.querySelectorAll('.fit-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         toggleGuide.querySelectorAll('.fit-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        onChange({ guideType: btn.dataset.guide });
+        const guideType = btn.dataset.guide;
+        if (guideColorPresets) {
+          guideColorPresets.style.display = guideType === 'none' ? 'none' : 'flex';
+        }
+        onChange({ guideType });
       });
     });
+
+    if (guideColorPresets) {
+      guideColorPresets.querySelectorAll('.preset-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          guideColorPresets.querySelectorAll('.preset-chip').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          onChange({ guideColor: btn.dataset.color });
+        });
+      });
+    }
   }
 
   if (sliderMargin) {

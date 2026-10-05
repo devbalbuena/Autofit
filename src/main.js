@@ -91,6 +91,7 @@ let state = {
   count: 1, // default quantity is 1 for single sizes
   fitMode: 'cover',
   guideType: 'corners', // 'corners' | 'border' | 'none'
+  guideColor: '#000000', // '#000000' | '#64748b' | '#cbd5e1'
   margin: 0.20, // inches
   gap: 0.05, // inches
   distributeMode: 'repeat', // 'repeat' | 'distribute'
@@ -310,6 +311,7 @@ document.getElementById('app').innerHTML = `
               alignment: state.alignment,
               fitMode: state.fitMode,
               guideType: state.guideType,
+              guideColor: state.guideColor,
               margin: state.margin,
               gap: state.gap,
               distributeMode: state.distributeMode,
@@ -559,6 +561,7 @@ function updatePreview() {
     activePhotoIndex: state.activePhotoIndex,
     fitMode: state.fitMode,
     guideType: state.guideType,
+    guideColor: state.guideColor,
     distributeMode: state.distributeMode,
     zoomFactor: state.zoomFactor,
     canvasMode: state.canvasMode,
@@ -730,6 +733,7 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   }
   if (settings.fitMode !== undefined) state.fitMode = settings.fitMode;
   if (settings.guideType !== undefined) state.guideType = settings.guideType;
+  if (settings.guideColor !== undefined) state.guideColor = settings.guideColor;
   if (settings.margin !== undefined) state.margin = settings.margin;
   if (settings.gap !== undefined) state.gap = settings.gap;
   if (settings.distributeMode !== undefined) state.distributeMode = settings.distributeMode;
@@ -741,6 +745,7 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   alignment: state.alignment,
   fitMode: state.fitMode,
   guideType: state.guideType,
+  guideColor: state.guideColor,
   margin: state.margin,
   gap: state.gap,
   distributeMode: state.distributeMode,
@@ -891,6 +896,7 @@ function handlePrint() {
     activePhotoIndex: state.activePhotoIndex,
     fitMode: state.fitMode,
     guideType: state.guideType,
+    guideColor: state.guideColor,
     distributeMode: state.distributeMode,
   });
 }
@@ -910,6 +916,7 @@ function handleExportPNG() {
     activePhotoIndex: state.activePhotoIndex,
     fitMode: state.fitMode,
     guideType: state.guideType,
+    guideColor: state.guideColor,
     distributeMode: state.distributeMode,
   });
 }
@@ -929,6 +936,7 @@ function handleExportPDF() {
     activePhotoIndex: state.activePhotoIndex,
     fitMode: state.fitMode,
     guideType: state.guideType,
+    guideColor: state.guideColor,
     distributeMode: state.distributeMode,
   });
 }

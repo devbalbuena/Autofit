@@ -48,12 +48,12 @@ export function updatePrintPageCSS(sheetObj, orientation = 'portrait') {
 /**
  * Generate Corner Crop Hairlines for Print
  */
-function renderPrintCornerMarks() {
+function renderPrintCornerMarks(guideColor = '#000000') {
   return `
-    <div style="position:absolute;top:0;left:0;width:5px;height:5px;border-top:0.4pt solid #000;border-left:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
-    <div style="position:absolute;top:0;right:0;width:5px;height:5px;border-top:0.4pt solid #000;border-right:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
-    <div style="position:absolute;bottom:0;left:0;width:5px;height:5px;border-bottom:0.4pt solid #000;border-left:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
-    <div style="position:absolute;bottom:0;right:0;width:5px;height:5px;border-bottom:0.4pt solid #000;border-right:0.4pt solid #000;pointer-events:none;z-index:10;"></div>
+    <div style="position:absolute;top:0;left:0;width:5px;height:5px;border-top:0.4pt solid ${guideColor};border-left:0.4pt solid ${guideColor};pointer-events:none;z-index:10;"></div>
+    <div style="position:absolute;top:0;right:0;width:5px;height:5px;border-top:0.4pt solid ${guideColor};border-right:0.4pt solid ${guideColor};pointer-events:none;z-index:10;"></div>
+    <div style="position:absolute;bottom:0;left:0;width:5px;height:5px;border-bottom:0.4pt solid ${guideColor};border-left:0.4pt solid ${guideColor};pointer-events:none;z-index:10;"></div>
+    <div style="position:absolute;bottom:0;right:0;width:5px;height:5px;border-bottom:0.4pt solid ${guideColor};border-right:0.4pt solid ${guideColor};pointer-events:none;z-index:10;"></div>
   `;
 }
 
@@ -104,10 +104,11 @@ export function buildPrintHTML({
   activePhotoIndex = 0,
   fitMode = 'cover',
   guideType = 'corners',
+  guideColor = '#000000',
   distributeMode = 'repeat',
 }) {
   const borderGuide = guideType === 'border'
-    ? 'border: 0.25pt dashed rgba(0, 0, 0, 0.45);'
+    ? `border: 0.25pt dashed ${guideColor};`
     : 'border: none;';
 
   const cellsHTML = tiling.cells.map((cell, idx) => {
@@ -136,7 +137,7 @@ export function buildPrintHTML({
         ${bgCSS}
         ${borderGuide}
       ">
-        ${guideType === 'corners' ? renderPrintCornerMarks() : ''}
+        ${guideType === 'corners' ? renderPrintCornerMarks(guideColor) : ''}
         <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
           <img src="${photo.dataUrl}" style="
             width: 100%;
@@ -183,6 +184,7 @@ export function executePrint({
   activePhotoIndex = 0,
   fitMode = 'cover',
   guideType = 'corners',
+  guideColor = '#000000',
   distributeMode = 'repeat',
 }) {
   if (!photos || photos.length === 0) {
@@ -199,6 +201,7 @@ export function executePrint({
     activePhotoIndex,
     fitMode,
     guideType,
+    guideColor,
     distributeMode,
   });
 

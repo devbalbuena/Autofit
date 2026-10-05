@@ -18,6 +18,7 @@ async function renderSheetToCanvas({
   activePhotoIndex = 0,
   fitMode = 'cover',
   guideType = 'corners',
+  guideColor = '#000000',
   distributeMode = 'repeat',
 }) {
   const canvas = document.createElement('canvas');
@@ -69,6 +70,7 @@ async function renderSheetToCanvas({
       photo,
       fitMode,
       guideType,
+      guideColor,
     });
   }
 
@@ -142,6 +144,7 @@ function drawCellOnCanvas({
   photo,
   fitMode,
   guideType,
+  guideColor = '#000000',
 }) {
   const adj = photo.adjustments || {};
   const panX = adj.panX ?? 0;
@@ -228,7 +231,7 @@ function drawCellOnCanvas({
   // Cutting guides
   if (guideType === 'border') {
     ctx.save();
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.strokeStyle = guideColor || 'rgba(0, 0, 0, 0.45)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 6]);
     ctx.strokeRect(x, y, w, h);
@@ -236,7 +239,7 @@ function drawCellOnCanvas({
   } else if (guideType === 'corners') {
     const markLen = 14;
     ctx.save();
-    ctx.strokeStyle = '#000000';
+    ctx.strokeStyle = guideColor || '#000000';
     ctx.lineWidth = 1.2;
 
     // Top-left
