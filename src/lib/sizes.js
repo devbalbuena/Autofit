@@ -96,6 +96,14 @@ export const DEFAULT_SIZE_ID = '4r';
 export const DEFAULT_SHEET   = 'a4';
 export const SCREEN_DPI      = 96;
 
+export const PRINTER_PROFILES = [
+  { id: 'epson_photo',    name: 'Epson Photo (L805 / L1800)',  margin: 0.12, gap: 0.04, desc: '3mm min margin' },
+  { id: 'epson_standard', name: 'Epson EcoTank (L3110 / L120)', margin: 0.20, gap: 0.05, desc: '5mm safe margin' },
+  { id: 'canon_pixma',    name: 'Canon PIXMA (G2010 / G3010)', margin: 0.24, gap: 0.05, desc: '6mm feed margin' },
+  { id: 'hp_inktank',     name: 'HP Ink Tank / Smart Tank',    margin: 0.28, gap: 0.06, desc: '7mm bottom margin' },
+  { id: 'borderless',     name: 'Full Bleed (Borderless)',     margin: 0.00, gap: 0.04, desc: '0mm edge-to-edge' },
+];
+
 const CUSTOM_SIZES_KEY  = 'autofit_custom_sizes';
 const CUSTOM_SHEETS_KEY = 'autofit_custom_sheets';
 const UNIT_PREF_KEY     = 'autofit_unit_pref';

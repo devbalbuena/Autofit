@@ -7,6 +7,7 @@ import {
   formatSizeDimensions,
   getSizeById,
   getSheetById,
+  PRINTER_PROFILES,
 } from '../src/lib/sizes.js';
 
 describe('sizes.js - Unit Conversion Functions', () => {
@@ -44,5 +45,16 @@ describe('sizes.js - Unit Conversion Functions', () => {
     assert.ok(a4);
     assert.equal(a4.w, 8.27);
     assert.equal(a4.h, 11.69);
+  });
+
+  it('provides printer hardware calibration profiles with valid margins', () => {
+    assert.ok(Array.isArray(PRINTER_PROFILES));
+    assert.ok(PRINTER_PROFILES.length >= 4);
+    PRINTER_PROFILES.forEach(profile => {
+      assert.ok(profile.id);
+      assert.ok(profile.name);
+      assert.ok(profile.margin >= 0);
+      assert.ok(profile.gap >= 0);
+    });
   });
 });

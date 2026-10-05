@@ -4,7 +4,7 @@
  * cutting guides (corner marks vs dashed borders), sheet margins & presets,
  * photo gaps & presets, and multi-photo distribution.
  */
-import { formatDimension } from '../lib/sizes.js';
+import { formatDimension, PRINTER_PROFILES } from '../lib/sizes.js';
 
 export function PrintSettingsHTML({
   orientation = 'portrait', // 'portrait' | 'landscape'
@@ -72,10 +72,21 @@ export function PrintSettingsHTML({
           </button>
         </div>
       </div>
+ 
+       <!-- Printer Hardware Margin Calibration Presets -->
+       <div class="panel-section">
+         <div class="panel-label">Printer Hardware Calibration</div>
+         <select class="sheet-select" id="printer-profile-select" title="Auto-calibrate margins for specific physical printers">
+           <option value="">⚙️ Select Printer Profile...</option>
+           ${PRINTER_PROFILES.map(p => `
+             <option value="${p.id}">${p.name} — ${p.desc}</option>
+           `).join('')}
+         </select>
+       </div>
 
-      <!-- Paper Margins & Quick Presets -->
-      <div class="panel-section">
-        <div class="panel-label">Sheet Printable Margins</div>
+       <!-- Paper Margins & Quick Presets -->
+       <div class="panel-section">
+         <div class="panel-label">Sheet Printable Margins</div>
         <div class="adjust-slider-group">
           <div class="slider-header">
             <span>Margin Width</span>
@@ -138,6 +149,26 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
   const marginPresets     = containerEl.querySelector('#margin-presets');
   const gapPresets        = containerEl.querySelector('#gap-presets');
   const toggleDistribute  = containerEl.querySelector('#distribute-mode-toggle');
+  const printerProfileSel = containerEl.querySelector('#printer-profile-select');
+
+  if (printerProfileSel) {
+    printerProfileSel.addEventListener('change', () => {
+      const selected = PRINTER_PROFILES.find(p => p.id === printerProfileSel.value);
+      if (selected) {
+        if (sliderMargin) {
+          sliderMargin.value = selected.margin;
+          valMargin.textContent = formatDimension(selected.margin);
+          updateMarginChip(selected.margin);
+        }
+        if (sliderGap) {
+          sliderGap.value = selected.gap;
+          valGap.textContent = selected.gap === 0 ? '0 (Zero-gap)' : formatDimension(selected.gap);
+          updateGapChip(selected.gap);
+        }
+        onChange({ margin: selected.margin, gap: selected.gap });
+      }
+    });
+  }
 
   if (toggleOrientation) {
     toggleOrientation.querySelectorAll('.orientation-btn').forEach(btn => {
