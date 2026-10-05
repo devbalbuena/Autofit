@@ -178,7 +178,7 @@ export function renderSheetPreview({
           </div>
           <div class="customer-card-body">
             <div class="customer-card-header">
-              <span class="customer-card-name" title="${p.name}">${p.name || `Customer #${idx + 1}`}</span>
+              <input type="text" class="customer-card-name-input" data-cust-idx="${idx}" value="${p.name || `Customer #${idx + 1}`}" title="Click to rename customer" />
               ${photos.length > 1 ? `<button class="btn-queue-remove" data-remove-idx="${idx}" title="Remove Customer">&times;</button>` : ''}
             </div>
             <div class="customer-card-controls">

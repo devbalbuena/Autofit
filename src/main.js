@@ -646,6 +646,22 @@ function wireQueueEvents() {
     });
   });
 
+  const nameInputs = sheetWrap.querySelectorAll('.customer-card-name-input');
+  nameInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = parseInt(input.dataset.custIdx, 10);
+      const val = input.value.trim();
+      if (state.photos[idx] && val) {
+        state.photos[idx].name = val;
+        if (state.photos[idx].adjustments?.nameTag) {
+          state.photos[idx].adjustments.nameTag.text = val;
+        }
+        updatePreview();
+        toast(`Customer #${idx + 1} named: ${val}`, 'info', 1500);
+      }
+    });
+  });
+
   const btnAddMore = sheetWrap.querySelector('#btn-add-more-photos');
   if (btnAddMore) {
     btnAddMore.onclick = () => fileInput.click();
