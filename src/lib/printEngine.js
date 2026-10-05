@@ -58,6 +58,32 @@ function renderPrintCornerMarks(guideColor = '#000000') {
 }
 
 /**
+ * Generate print watermark overlay
+ */
+function renderPrintWatermark(watermark) {
+  if (!watermark) return '';
+  return `
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:6;overflow:hidden;">
+      <span style="font-weight:900;font-size:14pt;color:rgba(220,38,38,0.28);text-transform:uppercase;transform:rotate(-35deg);letter-spacing:1.5px;white-space:nowrap;font-family:Arial,sans-serif;">${watermark}</span>
+    </div>
+  `;
+}
+
+/**
+ * Generate print footer metadata info
+ */
+function renderPrintFooter(sheetObj, showFooterInfo) {
+  if (!showFooterInfo) return '';
+  const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return `
+    <div style="position:absolute;bottom:0.06in;left:0.25in;right:0.25in;font-size:6.5pt;color:#64748b;font-family:monospace;display:flex;justify-content:space-between;border-top:0.35pt solid #cbd5e1;padding-top:2px;">
+      <span>AutoFit Studio • ${sheetObj.name} (${sheetObj.w}″×${sheetObj.h}″)</span>
+      <span>${dateStr}</span>
+    </div>
+  `;
+}
+
+/**
  * Generate ID Name Tag Banner for Print
  */
 function renderPrintNameTag(nameTag) {
@@ -106,6 +132,8 @@ export function buildPrintHTML({
   guideType = 'corners',
   guideColor = '#000000',
   distributeMode = 'repeat',
+  watermark = '',
+  showFooterInfo = false,
 }) {
   const borderGuide = guideType === 'border'
     ? `border: 0.25pt dashed ${guideColor};`
@@ -152,6 +180,7 @@ export function buildPrintHTML({
           " alt="photo ${idx + 1}" />
         </div>
         ${renderPrintNameTag(photo.adjustments?.nameTag)}
+        ${renderPrintWatermark(watermark)}
       </div>
     `;
   }).join('');
@@ -169,6 +198,7 @@ export function buildPrintHTML({
       page-break-inside: avoid;
     ">
       ${cellsHTML}
+      ${renderPrintFooter(sheetObj, showFooterInfo)}
     </div>
   `;
 }
@@ -186,6 +216,8 @@ export function executePrint({
   guideType = 'corners',
   guideColor = '#000000',
   distributeMode = 'repeat',
+  watermark = '',
+  showFooterInfo = false,
 }) {
   if (!photos || photos.length === 0) {
     toast('Please load a photo first before printing', 'error');
@@ -203,6 +235,8 @@ export function executePrint({
     guideType,
     guideColor,
     distributeMode,
+    watermark,
+    showFooterInfo,
   });
 
   const printImgs = Array.from(printFrameEl.querySelectorAll('img'));

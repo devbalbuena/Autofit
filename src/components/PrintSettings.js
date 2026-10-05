@@ -15,10 +15,28 @@ export function PrintSettingsHTML({
   margin = 0.2,
   gap = 0.05,
   distributeMode = 'repeat', // 'repeat' | 'distribute'
+  watermark = '',
+  showFooterInfo = false,
   photoCount = 1,
 } = {}) {
   return `
     <div class="print-settings">
+      <!-- Studio Proof Watermark & Footer Metadata -->
+      <div class="panel-section">
+        <div class="panel-label">Studio Proof & Sheet Stamp</div>
+        <div class="watermark-controls" style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="input-watermark-text" placeholder="Watermark (e.g. SAMPLE PROOF)" value="${watermark || ''}" style="flex:1; padding:6px 9px; font-size:12px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:6px; color:var(--text-main);" />
+            <button class="preset-chip ${watermark === 'SAMPLE' ? 'active' : ''}" data-wm="SAMPLE" style="font-size:11px;">SAMPLE</button>
+            <button class="preset-chip ${watermark === 'PROOF' ? 'active' : ''}" data-wm="PROOF" style="font-size:11px;">PROOF</button>
+            ${watermark ? `<button class="preset-chip" data-wm="" style="font-size:11px;" title="Clear Watermark">✕</button>` : ''}
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; color:var(--text-muted);">
+            <input type="checkbox" id="check-footer-info" ${showFooterInfo ? 'checked' : ''} style="cursor:pointer;" />
+            <span>Print Sheet Footer Info (Paper, date & timestamp)</span>
+          </label>
+        </div>
+      </div>
       <!-- Sheet Paper Orientation -->
       <div class="panel-section">
         <div class="panel-label">Paper Orientation</div>
@@ -294,6 +312,31 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
         btn.classList.add('active');
         onChange({ distributeMode: btn.dataset.distribute });
       });
+    });
+  }
+
+  const inputWatermark = containerEl.querySelector('#input-watermark-text');
+  const checkFooter    = containerEl.querySelector('#check-footer-info');
+
+  if (inputWatermark) {
+    inputWatermark.addEventListener('input', () => {
+      const val = inputWatermark.value.trim();
+      containerEl.querySelectorAll('[data-wm]').forEach(b => b.classList.toggle('active', b.dataset.wm === val && val !== ''));
+      onChange({ watermark: val });
+    });
+    containerEl.querySelectorAll('[data-wm]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.wm;
+        inputWatermark.value = val;
+        containerEl.querySelectorAll('[data-wm]').forEach(b => b.classList.toggle('active', b.dataset.wm === val && val !== ''));
+        onChange({ watermark: val });
+      });
+    });
+  }
+
+  if (checkFooter) {
+    checkFooter.addEventListener('change', () => {
+      onChange({ showFooterInfo: checkFooter.checked });
     });
   }
 

@@ -95,6 +95,8 @@ let state = {
   margin: 0.20, // inches
   gap: 0.05, // inches
   distributeMode: 'repeat', // 'repeat' | 'distribute'
+  watermark: '', // studio sample/proof watermark
+  showFooterInfo: false, // sheet metadata stamp
   zoomFactor: 1.0, // Canvas view zoom
 };
 
@@ -315,6 +317,8 @@ document.getElementById('app').innerHTML = `
               margin: state.margin,
               gap: state.gap,
               distributeMode: state.distributeMode,
+              watermark: state.watermark,
+              showFooterInfo: state.showFooterInfo,
               photoCount: state.photos.length,
             })}
           </div>
@@ -563,6 +567,8 @@ function updatePreview() {
     guideType: state.guideType,
     guideColor: state.guideColor,
     distributeMode: state.distributeMode,
+    watermark: state.watermark,
+    showFooterInfo: state.showFooterInfo,
     zoomFactor: state.zoomFactor,
     canvasMode: state.canvasMode,
     onPanChange: (newPanX, newPanY, targetPhotoIdx) => {
@@ -772,6 +778,8 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   if (settings.margin !== undefined) state.margin = settings.margin;
   if (settings.gap !== undefined) state.gap = settings.gap;
   if (settings.distributeMode !== undefined) state.distributeMode = settings.distributeMode;
+  if (settings.watermark !== undefined) state.watermark = settings.watermark;
+  if (settings.showFooterInfo !== undefined) state.showFooterInfo = settings.showFooterInfo;
 
   if (state.photos.length > 0) updatePreview();
   updateCountDisplay();
@@ -784,6 +792,8 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   margin: state.margin,
   gap: state.gap,
   distributeMode: state.distributeMode,
+  watermark: state.watermark,
+  showFooterInfo: state.showFooterInfo,
 });
 
 // ─── Shortcuts Modal Initialization ───────────────────────────────────────────
@@ -933,6 +943,8 @@ function handlePrint() {
     guideType: state.guideType,
     guideColor: state.guideColor,
     distributeMode: state.distributeMode,
+    watermark: state.watermark,
+    showFooterInfo: state.showFooterInfo,
   });
 }
 
@@ -953,6 +965,8 @@ function handleExportPNG() {
     guideType: state.guideType,
     guideColor: state.guideColor,
     distributeMode: state.distributeMode,
+    watermark: state.watermark,
+    showFooterInfo: state.showFooterInfo,
   });
 }
 
@@ -973,6 +987,8 @@ function handleExportPDF() {
     guideType: state.guideType,
     guideColor: state.guideColor,
     distributeMode: state.distributeMode,
+    watermark: state.watermark,
+    showFooterInfo: state.showFooterInfo,
   });
 }
 

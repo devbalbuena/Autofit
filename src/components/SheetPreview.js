@@ -115,6 +115,65 @@ export const CUSTOMER_PRINT_SIZES = [
 ];
 
 /**
+ * Generate diagonal watermark overlay
+ */
+function renderWatermarkHTML(watermark) {
+  if (!watermark) return '';
+  return `
+    <div class="watermark-overlay" style="
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 6;
+      overflow: hidden;
+    ">
+      <span style="
+        font-weight: 900;
+        font-size: clamp(9px, 14cqi, 26px);
+        color: rgba(220, 38, 38, 0.28);
+        text-transform: uppercase;
+        transform: rotate(-35deg);
+        letter-spacing: 1.5px;
+        white-space: nowrap;
+        user-select: none;
+        font-family: Arial, sans-serif;
+      ">${watermark}</span>
+    </div>
+  `;
+}
+
+/**
+ * Generate sheet bottom footer metadata line
+ */
+function renderFooterInfoHTML(sheetObj, showFooterInfo) {
+  if (!showFooterInfo) return '';
+  const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return `
+    <div class="sheet-footer-info" style="
+      position: absolute;
+      bottom: 4px;
+      left: 12px;
+      right: 12px;
+      font-size: 8px;
+      color: #94a3b8;
+      font-family: monospace;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 2px;
+      z-index: 7;
+    ">
+      <span>AutoFit Studio • ${sheetObj.name} (${sheetObj.w}″×${sheetObj.h}″)</span>
+      <span>${dateStr}</span>
+    </div>
+  `;
+}
+
+/**
  * Render the sheet preview
  */
 export function renderSheetPreview({
@@ -128,6 +187,8 @@ export function renderSheetPreview({
   guideType = 'corners',
   guideColor = '#000000',
   distributeMode = 'repeat',
+  watermark = '',
+  showFooterInfo = false,
   zoomFactor = 1.0,
   canvasMode = 'move', // 'move' | 'crop'
   onPanChange = null,
@@ -277,6 +338,7 @@ export function renderSheetPreview({
             " />
           </div>
           ${renderNameTagHTML(photo.adjustments?.nameTag)}
+          ${renderWatermarkHTML(watermark)}
           <div class="cell-tag">#${(cell.photoIndex ?? 0) + 1} • ${cell.sizeName || `${cell.w}×${cell.h}`}</div>
         </div>
       `;
@@ -325,6 +387,7 @@ export function renderSheetPreview({
             " />
           </div>
           ${renderNameTagHTML(photo.adjustments?.nameTag)}
+          ${renderWatermarkHTML(watermark)}
           <div class="cell-tag">${cell.name}</div>
         </div>
       `;
@@ -386,9 +449,14 @@ export function renderSheetPreview({
             " />
           </div>
           ${renderNameTagHTML(photo.adjustments?.nameTag)}
+          ${renderWatermarkHTML(watermark)}
         </div>
       `;
     }).join('');
+  }
+
+  if (showFooterInfo) {
+    gridEl.innerHTML += renderFooterInfoHTML(sheetObj, showFooterInfo);
   }
 
   // ── Word-Style Selection Bounding Box ──────────────────────────────────────

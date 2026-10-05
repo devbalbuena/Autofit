@@ -20,6 +20,8 @@ async function renderSheetToCanvas({
   guideType = 'corners',
   guideColor = '#000000',
   distributeMode = 'repeat',
+  watermark = '',
+  showFooterInfo = false,
 }) {
   const canvas = document.createElement('canvas');
   const widthPx  = Math.round(sheetObj.w * PRINT_DPI);
@@ -71,7 +73,29 @@ async function renderSheetToCanvas({
       fitMode,
       guideType,
       guideColor,
+      watermark,
     });
+  }
+
+  // Draw Footer Metadata Line
+  if (showFooterInfo) {
+    ctx.save();
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    const footerY = heightPx - Math.round(0.20 * PRINT_DPI);
+    ctx.beginPath();
+    ctx.moveTo(Math.round(0.25 * PRINT_DPI), footerY);
+    ctx.lineTo(widthPx - Math.round(0.25 * PRINT_DPI), footerY);
+    ctx.stroke();
+
+    ctx.font = '22px monospace';
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`AutoFit Studio • ${sheetObj.name} (${sheetObj.w}″×${sheetObj.h}″)`, Math.round(0.25 * PRINT_DPI), footerY + 8);
+    ctx.textAlign = 'right';
+    ctx.fillText(new Date().toLocaleDateString(), widthPx - Math.round(0.25 * PRINT_DPI), footerY + 8);
+    ctx.restore();
   }
 
   return canvas;
@@ -145,6 +169,7 @@ function drawCellOnCanvas({
   fitMode,
   guideType,
   guideColor = '#000000',
+  watermark = '',
 }) {
   const adj = photo.adjustments || {};
   const panX = adj.panX ?? 0;
@@ -224,6 +249,20 @@ function drawCellOnCanvas({
       ctx.fillStyle = '#333333';
       ctx.fillText(nameTag.sub, x + w / 2, bannerY + bannerH * 0.78);
     }
+  }
+
+  // Studio Proof Watermark
+  if (watermark) {
+    ctx.save();
+    ctx.translate(x + w / 2, y + h / 2);
+    ctx.rotate((-35 * Math.PI) / 180);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(220, 38, 38, 0.28)';
+    const wmFont = Math.max(16, Math.round(w * 0.16));
+    ctx.font = `900 ${wmFont}px sans-serif`;
+    ctx.fillText(watermark.toUpperCase(), 0, 0);
+    ctx.restore();
   }
 
   ctx.restore();
