@@ -188,16 +188,27 @@ export function PrintSettingsHTML({
         <!-- Quick Economics Estimator -->
         <div class="economics-drawer" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:8px 10px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <span style="font-size:11px; font-weight:700; color:var(--text-main);">💵 Print Cost & Profit</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:11px; font-weight:700; color:var(--text-main);">💵 Print Cost & Profit</span>
+              <select id="select-currency" title="Shop Currency" style="padding:2px 4px; font-size:10px; background:var(--bg-canvas); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); font-weight:600; cursor:pointer;">
+                <option value="₱" selected>₱ PHP</option>
+                <option value="$">$ USD</option>
+                <option value="€">€ EUR</option>
+                <option value="£">£ GBP</option>
+                <option value="¥">¥ JPY</option>
+                <option value="₹">₹ INR</option>
+                <option value="AED ">AED</option>
+              </select>
+            </div>
             <span id="econ-net-profit" style="font-size:11px; font-weight:800; color:#10b981;">₱0.00 profit</span>
           </div>
           <div style="display:flex; gap:6px; align-items:center; font-size:11px;">
             <label style="flex:1; display:flex; flex-direction:column; gap:2px; color:var(--text-muted);">
-              <span style="font-size:9.5px;">Paper Cost (₱)</span>
+              <span id="lbl-paper-cost" style="font-size:9.5px;">Paper Cost (₱)</span>
               <input type="number" id="input-paper-cost" min="0" step="0.5" value="5.00" style="padding:4px 6px; font-size:11px; background:var(--bg-canvas); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); width:100%; box-sizing:border-box;" />
             </label>
             <label style="flex:1; display:flex; flex-direction:column; gap:2px; color:var(--text-muted);">
-              <span style="font-size:9.5px;">Price / Photo (₱)</span>
+              <span id="lbl-price-per-id" style="font-size:9.5px;">Price / Photo (₱)</span>
               <input type="number" id="input-price-per-id" min="0" step="5" value="30.00" style="padding:4px 6px; font-size:11px; background:var(--bg-canvas); border:1px solid var(--border-color); border-radius:4px; color:var(--text-main); width:100%; box-sizing:border-box;" />
             </label>
           </div>
@@ -391,6 +402,9 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
 
   const inputPaperCost = containerEl.querySelector('#input-paper-cost');
   const inputPricePerId = containerEl.querySelector('#input-price-per-id');
+  const selectCurrency = containerEl.querySelector('#select-currency');
+  const lblPaperCost = containerEl.querySelector('#lbl-paper-cost');
+  const lblPricePerId = containerEl.querySelector('#lbl-price-per-id');
   const badgePercent = containerEl.querySelector('#efficiency-badge-percent');
   const meterFill = containerEl.querySelector('#efficiency-meter-fill');
   const statSheetArea = containerEl.querySelector('#stat-sheet-area');
@@ -399,19 +413,49 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
   const statTotalPhotos = containerEl.querySelector('#stat-total-photos');
   const econNetProfit = containerEl.querySelector('#econ-net-profit');
 
+  const PRICING_STORAGE_KEY = 'autofit_pricing_config';
+  let savedPricing = null;
+  try {
+    savedPricing = JSON.parse(localStorage.getItem(PRICING_STORAGE_KEY) || 'null');
+  } catch (e) {
+    savedPricing = null;
+  }
+
+  if (savedPricing) {
+    if (selectCurrency && savedPricing.currency) selectCurrency.value = savedPricing.currency;
+    if (inputPaperCost && savedPricing.paperCost !== undefined) inputPaperCost.value = savedPricing.paperCost;
+    if (inputPricePerId && savedPricing.pricePerId !== undefined) inputPricePerId.value = savedPricing.pricePerId;
+  }
+
   let currentTotalPhotos = 0;
+
+  function savePricing() {
+    const currency = selectCurrency?.value || '₱';
+    const paperCost = parseFloat(inputPaperCost?.value || '0') || 0;
+    const pricePerId = parseFloat(inputPricePerId?.value || '0') || 0;
+    try {
+      localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify({ currency, paperCost, pricePerId }));
+    } catch (e) {}
+  }
 
   function recalculateEconomics() {
     if (!econNetProfit) return;
+    const currency = selectCurrency?.value || '₱';
+    if (lblPaperCost) lblPaperCost.textContent = `Paper Cost (${currency.trim()})`;
+    if (lblPricePerId) lblPricePerId.textContent = `Price / Photo (${currency.trim()})`;
     const paperCost = parseFloat(inputPaperCost?.value || '0') || 0;
     const pricePerId = parseFloat(inputPricePerId?.value || '0') || 0;
     const gross = currentTotalPhotos * pricePerId;
     const profit = Math.max(0, gross - paperCost);
-    econNetProfit.textContent = `₱${profit.toFixed(2)} profit`;
+    econNetProfit.textContent = `${currency}${profit.toFixed(2)} profit`;
+    savePricing();
   }
 
+  if (selectCurrency) selectCurrency.addEventListener('change', recalculateEconomics);
   if (inputPaperCost) inputPaperCost.addEventListener('input', recalculateEconomics);
   if (inputPricePerId) inputPricePerId.addEventListener('input', recalculateEconomics);
+
+  recalculateEconomics();
 
   return {
     updatePhotoCount: (count) => {
