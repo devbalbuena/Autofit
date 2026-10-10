@@ -2250,4 +2250,41 @@ img {
   outline-offset: -1px;
 }
 
+.btn-cust-duplicate {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: all 0.14s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-cust-duplicate:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.btn-cust-reorder {
+  background: transparent;
+  border: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  transition: all 0.12s ease;
+}
+
+.btn-cust-reorder:hover:not(:disabled) {
+  color: var(--ink-primary);
+  background: var(--bg-card);
+}
+
 

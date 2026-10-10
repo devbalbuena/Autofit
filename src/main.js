@@ -643,6 +643,15 @@ function wireQueueEvents() {
     });
   });
 
+  const dupBtns = sheetWrap.querySelectorAll('.btn-cust-duplicate');
+  dupBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.dupIdx, 10);
+      duplicateCustomer(idx);
+    });
+  });
+
   const sizeSelects = sheetWrap.querySelectorAll('.customer-size-select');
   sizeSelects.forEach(sel => {
     sel.addEventListener('change', (e) => {
@@ -732,6 +741,24 @@ function removePhotoFromQueue(index) {
   printSettingsController.updatePhotoCount(state.photos.length);
   setActivePhoto(state.activePhotoIndex);
   toast('Photo removed from sheet', 'info');
+}
+
+function duplicateCustomer(index) {
+  if (index < 0 || index >= state.photos.length) return;
+  const original = state.photos[index];
+  const clone = {
+    ...original,
+    id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    name: `${original.name || `Customer #${index + 1}`} (Copy)`,
+    adjustments: JSON.parse(JSON.stringify(original.adjustments || createDefaultAdjustments())),
+    quantity: original.quantity || 1,
+    sizeId: original.sizeId || '2x2',
+  };
+  state.photos.splice(index + 1, 0, clone);
+  state.activePhotoIndex = index + 1;
+  printSettingsController.updatePhotoCount(state.photos.length);
+  setActivePhoto(index + 1);
+  toast(`Duplicated ${original.name || `Customer #${index + 1}`}`, 'success', 2500);
 }
 
 // ─── Floating Zoom Controls Wiring ────────────────────────────────────────────
