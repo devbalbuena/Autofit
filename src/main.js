@@ -26,6 +26,7 @@ import { ImageAdjustmentsHTML, initImageAdjustments } from './components/ImageAd
 import { HistoryPanelHTML, initHistoryPanel } from './components/HistoryPanel.js';
 import { ShortcutsModalHTML, initShortcutsModal } from './components/ShortcutsModal.js';
 import { ComplianceModalHTML, initComplianceModal } from './components/ComplianceModal.js';
+import { ClaimSlipModalHTML, initClaimSlipModal } from './components/ClaimSlipModal.js';
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 import { exportHighResPNG, exportHighResPDF } from './lib/exporter.js';
 
@@ -207,6 +208,10 @@ document.getElementById('app').innerHTML = `
           Export PNG
         </button>
 
+        <button class="btn secondary" id="btn-claim-slip" disabled title="Generate Customer Order Claim Stub / Receipt Ticket">
+          <span style="font-size:12px;">🧾</span> Claim Slip
+        </button>
+
         <button class="btn primary" id="btn-print" disabled title="Print Sheet (Ctrl+P)">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M4 6V2h8v4"/>
@@ -349,6 +354,7 @@ document.getElementById('app').innerHTML = `
 
   ${ShortcutsModalHTML()}
   ${ComplianceModalHTML()}
+  ${ClaimSlipModalHTML()}
   <div class="print-frame" id="print-frame"></div>
 `;
 
@@ -358,6 +364,7 @@ const fileInput       = document.getElementById('file-input');
 const btnPrint        = document.getElementById('btn-print');
 const btnExportPng    = document.getElementById('btn-export-png');
 const btnExportPdf    = document.getElementById('btn-export-pdf');
+const btnClaimSlip    = document.getElementById('btn-claim-slip');
 const btnClear        = document.getElementById('btn-clear');
 const sheetWrap       = document.getElementById('sheet-wrap');
 const sheetSelect     = document.getElementById('sheet-select');
@@ -882,6 +889,28 @@ if (dockBtnCompliance) {
   dockBtnCompliance.addEventListener('click', () => complianceModal.open());
 }
 
+const claimSlipModal = initClaimSlipModal(document.body, () => {
+  let pricing = { currency: '₱', pricePerId: 30 };
+  try {
+    pricing = JSON.parse(localStorage.getItem('autofit_pricing_config') || '{}');
+  } catch (e) {}
+
+  return {
+    photos: state.photos.map(p => ({
+      name: p.name,
+      quantity: p.quantity || 1,
+      sizeId: p.sizeId,
+      sizeLabel: getSizeById(p.sizeId || '2x2')?.name || p.sizeId,
+    })),
+    currency: pricing.currency || '₱',
+    pricePerId: pricing.pricePerId || 30,
+  };
+});
+
+if (btnClaimSlip) {
+  btnClaimSlip.addEventListener('click', () => claimSlipModal.open());
+}
+
 // ─── History Panel Initialization ─────────────────────────────────────────────
 const historyPanel = initHistoryPanel(rightPanel, (historyItem) => {
   loadSinglePhotoFromData({
@@ -977,6 +1006,7 @@ function loadSinglePhotoFromData({ dataUrl, name, dimensions, thumbUrl, sizeId }
   btnPrint.disabled = false;
   btnExportPng.disabled = false;
   btnExportPdf.disabled = false;
+  if (btnClaimSlip) btnClaimSlip.disabled = false;
   btnClear.disabled = false;
 
   printSettingsController.updatePhotoCount(state.photos.length);
@@ -997,6 +1027,7 @@ function clearPhotos() {
   btnPrint.disabled = true;
   btnExportPng.disabled = true;
   btnExportPdf.disabled = true;
+  if (btnClaimSlip) btnClaimSlip.disabled = true;
   btnClear.disabled = true;
   if (photoStatusText) photoStatusText.textContent = 'Ready';
   printSettingsController.updatePhotoCount(0);
