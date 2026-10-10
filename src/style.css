@@ -67,6 +67,61 @@
   --inspector-w:      340px;
 }
 
+/* ---------- Daylight / High-Contrast Print Room Theme ---------- */
+body.daylight-theme {
+  --bg-canvas:        #e2e8f0;
+  --bg-base:          #f1f5f9;
+  --bg-surface:       #ffffff;
+  --bg-elevated:      #f8fafc;
+  --bg-card:          #ffffff;
+  --bg-card-hover:    #f1f5f9;
+  --bg-input:         #f8fafc;
+
+  --border-subtle:    rgba(0, 0, 0, 0.08);
+  --border-medium:    rgba(0, 0, 0, 0.16);
+  --border-strong:    rgba(0, 0, 0, 0.28);
+  --border-focus:     #2563eb;
+
+  --ink-primary:      #0f172a;
+  --ink-secondary:    #334155;
+  --ink-muted:        #64748b;
+  --ink-dim:          #94a3b8;
+
+  --accent:           #2563eb;
+  --accent-hover:     #1d4ed8;
+  --accent-soft:      rgba(37, 99, 235, 0.12);
+  --accent-glow:      0 0 16px rgba(37, 99, 235, 0.2);
+  --accent-gradient:  linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+
+  --shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md:        0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-floating:  0 12px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  --shadow-sheet:     0 20px 50px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+body.daylight-theme .app-header {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid var(--border-medium);
+}
+
+body.daylight-theme .pro-dock,
+body.daylight-theme .right-panel {
+  background: #ffffff;
+  border-color: var(--border-medium);
+}
+
+body.daylight-theme .canvas-area {
+  background-color: #cbd5e1;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.8) 0%, transparent 80%),
+    linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+}
+
+body.daylight-theme .sheet {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
 /* ---------- Global Reset & Base ---------- */
 *, *::before, *::after {
   box-sizing: border-box;

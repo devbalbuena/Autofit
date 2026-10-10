@@ -213,6 +213,10 @@ document.getElementById('app').innerHTML = `
           <span style="font-size:12px;">🧾</span> Claim Slip
         </button>
 
+        <button class="btn secondary" id="btn-theme-toggle" title="Switch between Dark Studio and Daylight Print Room Theme">
+          <span id="theme-toggle-icon">☀️</span> <span id="theme-toggle-label">Daylight</span>
+        </button>
+
         <button class="btn primary" id="btn-print" disabled title="Print Sheet (Ctrl+P)">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M4 6V2h8v4"/>
@@ -384,6 +388,9 @@ const btnPrint        = document.getElementById('btn-print');
 const btnExportPng    = document.getElementById('btn-export-png');
 const btnExportPdf    = document.getElementById('btn-export-pdf');
 const btnClaimSlip    = document.getElementById('btn-claim-slip');
+const btnThemeToggle  = document.getElementById('btn-theme-toggle');
+const themeToggleIcon = document.getElementById('theme-toggle-icon');
+const themeToggleLabel = document.getElementById('theme-toggle-label');
 const btnClear        = document.getElementById('btn-clear');
 const sheetWrap       = document.getElementById('sheet-wrap');
 const sheetSelect     = document.getElementById('sheet-select');
@@ -451,6 +458,35 @@ function toggleZenMode() {
 btnToggleDock?.addEventListener('click', toggleDock);
 btnToggleInspector?.addEventListener('click', toggleInspector);
 btnZenMode?.addEventListener('click', toggleZenMode);
+
+// ─── High-Contrast Daylight Theme Switcher ────────────────────────────────────
+function applyTheme(theme) {
+  const isDaylight = theme === 'daylight';
+  document.body.classList.toggle('daylight-theme', isDaylight);
+  if (themeToggleIcon) themeToggleIcon.textContent = isDaylight ? '🌙' : '☀️';
+  if (themeToggleLabel) themeToggleLabel.textContent = isDaylight ? 'Dark Studio' : 'Daylight';
+  try {
+    localStorage.setItem('autofit_theme', theme);
+  } catch (err) {
+    console.warn('Could not save theme preference:', err);
+  }
+}
+
+try {
+  const savedTheme = localStorage.getItem('autofit_theme') || 'dark';
+  applyTheme(savedTheme);
+} catch (err) {
+  applyTheme('dark');
+}
+
+if (btnThemeToggle) {
+  btnThemeToggle.addEventListener('click', () => {
+    const isCurrentlyDaylight = document.body.classList.contains('daylight-theme');
+    const newTheme = isCurrentlyDaylight ? 'dark' : 'daylight';
+    applyTheme(newTheme);
+    toast(newTheme === 'daylight' ? '☀️ Switched to Daylight Theme' : '🌙 Switched to Dark Studio Theme', 'info', 1600);
+  });
+}
 
 // ─── Tab Switching ────────────────────────────────────────────────────────────
 function switchRightPanelTab(tabName) {
