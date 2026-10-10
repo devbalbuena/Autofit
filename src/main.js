@@ -745,6 +745,58 @@ function wireQueueEvents() {
   if (btnAddMore) {
     btnAddMore.onclick = () => fileInput.click();
   }
+
+  const btnBatchEnhance = sheetWrap.querySelector('#btn-batch-enhance');
+  if (btnBatchEnhance) {
+    btnBatchEnhance.onclick = () => {
+      if (state.photos.length === 0) return;
+      state.photos.forEach(photo => {
+        if (!photo.adjustments) photo.adjustments = createDefaultAdjustments();
+        photo.adjustments.brightness = 106;
+        photo.adjustments.contrast = 108;
+        photo.adjustments.saturation = 105;
+        photo.adjustments.sharpness = 120;
+      });
+      if (state.photos[state.activePhotoIndex]) {
+        imageAdjustmentsController.updateState(state.photos[state.activePhotoIndex].adjustments);
+      }
+      updatePreview();
+      toast(`✨ Auto-enhanced ${state.photos.length} customer photos in queue`, 'success', 2200);
+    };
+  }
+
+  const btnBatchRotate = sheetWrap.querySelector('#btn-batch-rotate');
+  if (btnBatchRotate) {
+    btnBatchRotate.onclick = () => {
+      if (state.photos.length === 0) return;
+      state.photos.forEach(photo => {
+        if (!photo.adjustments) photo.adjustments = createDefaultAdjustments();
+        photo.adjustments.rotation = ((photo.adjustments.rotation || 0) + 90) % 360;
+      });
+      if (state.photos[state.activePhotoIndex]) {
+        imageAdjustmentsController.updateState(state.photos[state.activePhotoIndex].adjustments);
+      }
+      updatePreview();
+      toast(`↻ Rotated all ${state.photos.length} photos +90°`, 'info', 1800);
+    };
+  }
+
+  const btnBatchReset = sheetWrap.querySelector('#btn-batch-reset');
+  if (btnBatchReset) {
+    btnBatchReset.onclick = () => {
+      if (state.photos.length === 0) return;
+      if (confirm('Reset filters and rotation for all photos in the queue?')) {
+        state.photos.forEach(photo => {
+          photo.adjustments = createDefaultAdjustments();
+        });
+        if (state.photos[state.activePhotoIndex]) {
+          imageAdjustmentsController.updateState(state.photos[state.activePhotoIndex].adjustments);
+        }
+        updatePreview();
+        toast('Reset all photo adjustments to defaults', 'info', 1800);
+      }
+    };
+  }
 }
 
 function setActivePhoto(index) {

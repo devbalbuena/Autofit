@@ -17,9 +17,22 @@ export function SheetPreviewHTML() {
           <span class="queue-count-badge" id="queue-count-badge">0</span>
         </div>
         <div class="queue-list" id="queue-list"></div>
-        <button class="btn-add-more-photos" id="btn-add-more-photos" title="Add another customer photo to print on this sheet">
-          <span>➕</span> Add Customer Photo
-        </button>
+        <div class="queue-bar-actions">
+          <button class="btn-add-more-photos" id="btn-add-more-photos" title="Add another customer photo to print on this sheet">
+            <span>➕</span> Add Customer Photo
+          </button>
+          <div class="queue-batch-menu">
+            <button class="btn-queue-batch" id="btn-batch-enhance" title="Auto-enhance brightness, contrast & sharpness for all photos in queue">
+              <span>✨</span> Enhance All
+            </button>
+            <button class="btn-queue-batch" id="btn-batch-rotate" title="Rotate all photos in queue +90° clockwise">
+              <span>↻</span> Rotate All
+            </button>
+            <button class="btn-queue-batch btn-queue-batch-reset" id="btn-batch-reset" title="Reset adjustments for all photos in queue">
+              <span>↺</span> Reset All
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="sheet-viewport" id="sheet-viewport">

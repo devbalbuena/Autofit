@@ -2244,6 +2244,47 @@ img {
   box-shadow: var(--shadow-sm), var(--accent-glow);
 }
 
+.queue-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.queue-batch-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-queue-batch {
+  background: var(--bg-hover);
+  color: var(--ink-secondary);
+  border: 1px solid var(--border-medium);
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-queue-batch:hover {
+  background: var(--bg-surface);
+  color: var(--ink-primary);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.btn-queue-batch-reset:hover {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 /* Active customer cell highlight on canvas */
 .sheet-cell.filled.cell-customer-active {
   outline: 2px solid var(--accent);
