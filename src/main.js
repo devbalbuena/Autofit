@@ -25,6 +25,7 @@ import { PrintSettingsHTML, initPrintSettings } from './components/PrintSettings
 import { ImageAdjustmentsHTML, initImageAdjustments } from './components/ImageAdjustments.js';
 import { HistoryPanelHTML, initHistoryPanel } from './components/HistoryPanel.js';
 import { ShortcutsModalHTML, initShortcutsModal } from './components/ShortcutsModal.js';
+import { ComplianceModalHTML, initComplianceModal } from './components/ComplianceModal.js';
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 import { exportHighResPNG, exportHighResPDF } from './lib/exporter.js';
 
@@ -130,6 +131,13 @@ document.getElementById('app').innerHTML = `
     </nav>
 
     <div class="dock-spacer"></div>
+
+    <button class="dock-btn" id="dock-btn-compliance" title="Official ID, Passport & Visa Standards Guide">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M7 3h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+        <path d="M8 7h4M8 11h4M8 15h2"/>
+      </svg>
+    </button>
 
     <button class="dock-btn" id="dock-btn-shortcuts" title="Shortcuts & Calibration Guide (?)">
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -338,6 +346,7 @@ document.getElementById('app').innerHTML = `
   </div>
 
   ${ShortcutsModalHTML()}
+  ${ComplianceModalHTML()}
   <div class="print-frame" id="print-frame"></div>
 `;
 
@@ -372,6 +381,7 @@ const dockNavPhotoPrint  = document.getElementById('dock-nav-photoprint');
 const dockNavIdStudio    = document.getElementById('dock-nav-idstudio');
 const dockNavCustomSizer = document.getElementById('dock-nav-customsizer');
 const dockBtnShortcuts   = document.getElementById('dock-btn-shortcuts');
+const dockBtnCompliance  = document.getElementById('dock-btn-compliance');
 
 // Floating Canvas Zoom & Zen Controls
 const btnZoomIn   = document.getElementById('btn-zoom-in');
@@ -803,10 +813,44 @@ const printSettingsController = initPrintSettings(rightPanel, (settings) => {
   showFooterInfo: state.showFooterInfo,
 });
 
-// ─── Shortcuts Modal Initialization ───────────────────────────────────────────
+// ─── Shortcuts & Compliance Modals Initialization ─────────────────────────────
 const shortcutsModal = initShortcutsModal(document.body);
 if (dockBtnShortcuts) {
   dockBtnShortcuts.addEventListener('click', () => shortcutsModal.open());
+}
+
+const complianceModal = initComplianceModal(document.body, (std) => {
+  // Apply size
+  if (std.sizeId && std.sizeId !== 'custom') {
+    sizeSelector.setSelected(std.sizeId);
+  }
+
+  // Apply to active photo adjustments
+  if (state.photos.length > 0 && state.photos[state.activePhotoIndex]) {
+    const photo = state.photos[state.activePhotoIndex];
+    if (!photo.adjustments) photo.adjustments = createDefaultAdjustments();
+
+    if (std.bgPreset) photo.adjustments.bgPreset = std.bgPreset;
+    if (std.showOval !== undefined) photo.adjustments.showOval = std.showOval;
+    if (std.nameTagRequired) {
+      photo.adjustments.nameTag.enabled = true;
+      if (!photo.adjustments.nameTag.text) {
+        photo.adjustments.nameTag.text = (photo.name || 'SURNAME, FIRST NAME M.I.').toUpperCase();
+      }
+    } else if (std.nameTagAllowed === false) {
+      photo.adjustments.nameTag.enabled = false;
+    }
+
+    imageAdjustmentsController.updateState(photo.adjustments);
+    updatePreview();
+    toast(`Applied ${std.name} standards (${std.dimensionsLabel})`, 'success', 3500);
+  } else {
+    toast(`Selected ${std.name} (${std.dimensionsLabel}). Load a photo to view guidelines!`, 'info', 3500);
+  }
+});
+
+if (dockBtnCompliance) {
+  dockBtnCompliance.addEventListener('click', () => complianceModal.open());
 }
 
 // ─── History Panel Initialization ─────────────────────────────────────────────
