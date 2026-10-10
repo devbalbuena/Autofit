@@ -60,6 +60,8 @@ function createDefaultAdjustments() {
     brightness: 100,
     contrast: 100,
     saturation: 100,
+    sepia: 0,
+    temperature: 0,
     isBW: false,
     rotation: 0,
     tilt: 0,

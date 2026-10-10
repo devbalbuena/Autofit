@@ -12,6 +12,8 @@ export function ImageAdjustmentsHTML(state = {}) {
   const contrast   = state.contrast ?? 100;
   const saturation = state.saturation ?? 100;
   const isBW       = state.isBW ?? false;
+  const sepia      = state.sepia ?? 0;
+  const temperature = state.temperature ?? 0;
   const rotation   = state.rotation ?? 0;
   const tilt       = state.tilt ?? 0;
   const flipH      = state.flipH ?? false;
@@ -112,14 +114,20 @@ export function ImageAdjustmentsHTML(state = {}) {
       </div>
 
       <div class="adjust-controls-grid">
-        <div class="adjust-actions-row" style="margin-bottom:8px;gap:5px">
-          <button class="adjust-action-btn" id="btn-auto-enhance" title="One-click print auto-enhance (brightness, contrast & clarity)" style="flex:1;background:var(--accent-soft);color:var(--accent-hover);border-color:var(--border-focus)">
-            <span>✨</span> Auto-Enhance
+        <div class="adjust-actions-row" style="margin-bottom:8px;gap:4px;flex-wrap:wrap">
+          <button class="adjust-action-btn" id="btn-auto-enhance" title="One-click print auto-enhance" style="flex:1;min-width:75px;background:var(--accent-soft);color:var(--accent-hover);border-color:var(--border-focus)">
+            <span>✨</span> Auto
           </button>
-          <button class="adjust-action-btn" id="btn-tone-warm" title="Warm skin tone portrait balancing" style="padding:6px 8px">
+          <button class="adjust-action-btn" id="btn-tone-warm" title="Warm skin tone portrait balancing" style="padding:6px 7px">
             <span>☀️</span> Warm
           </button>
-          <button class="adjust-action-btn ${isBW ? 'active' : ''}" id="btn-toggle-bw" title="Toggle Black & White" style="padding:6px 8px">
+          <button class="adjust-action-btn" id="btn-tone-cool" title="Cool daylight portrait balancing" style="padding:6px 7px">
+            <span>❄️</span> Cool
+          </button>
+          <button class="adjust-action-btn" id="btn-tone-sepia" title="Classic studio vintage sepia tone" style="padding:6px 7px">
+            <span>📜</span> Sepia
+          </button>
+          <button class="adjust-action-btn ${isBW ? 'active' : ''}" id="btn-toggle-bw" title="Toggle Black & White" style="padding:6px 7px">
             <span>⚫/⚪</span> B&W
           </button>
         </div>
@@ -149,6 +157,24 @@ export function ImageAdjustmentsHTML(state = {}) {
             <span class="slider-val" id="val-saturation">${saturation}%</span>
           </div>
           <input type="range" id="slider-saturation" min="0" max="200" value="${saturation}" step="1" />
+        </div>
+
+        <!-- Color Temperature Slider -->
+        <div class="adjust-slider-group" id="group-temp" style="${isBW ? 'opacity:0.4;pointer-events:none' : ''}">
+          <div class="slider-header">
+            <span>Color Temp (Cool ↔ Warm)</span>
+            <span class="slider-val" id="val-temp">${temperature > 0 ? `+${temperature} Warm` : (temperature < 0 ? `${temperature} Cool` : '0 (Neutral)')}</span>
+          </div>
+          <input type="range" id="slider-temp" min="-30" max="30" value="${temperature}" step="1" />
+        </div>
+
+        <!-- Vintage Sepia Slider -->
+        <div class="adjust-slider-group" id="group-sepia" style="${isBW ? 'opacity:0.4;pointer-events:none' : ''}">
+          <div class="slider-header">
+            <span>Vintage Sepia</span>
+            <span class="slider-val" id="val-sepia">${sepia}%</span>
+          </div>
+          <input type="range" id="slider-sepia" min="0" max="100" value="${sepia}" step="1" />
         </div>
 
         <!-- Background Tint -->
@@ -198,8 +224,18 @@ export function getCSSFilterString(state = {}) {
   const contrast   = (state.contrast ?? 100) / 100;
   const saturation = state.isBW ? 0 : (state.saturation ?? 100) / 100;
   const grayscale  = state.isBW ? 1 : 0;
+  const sepia      = (state.sepia ?? 0) / 100;
+  const temp       = state.temperature ?? 0;
+  const hueRotate  = Math.round((temp / 30) * 15);
 
-  return `brightness(${brightness}) contrast(${contrast}) saturate(${saturation}) grayscale(${grayscale})`;
+  let filter = `brightness(${brightness}) contrast(${contrast}) saturate(${saturation}) grayscale(${grayscale})`;
+  if (sepia > 0) {
+    filter += ` sepia(${sepia})`;
+  }
+  if (hueRotate !== 0) {
+    filter += ` hue-rotate(${hueRotate}deg)`;
+  }
+  return filter;
 }
 
 /**
@@ -261,12 +297,18 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
   const sliderBright = containerEl.querySelector('#slider-brightness');
   const sliderContr  = containerEl.querySelector('#slider-contrast');
   const sliderSat    = containerEl.querySelector('#slider-saturation');
+  const sliderTemp   = containerEl.querySelector('#slider-temp');
+  const sliderSepia  = containerEl.querySelector('#slider-sepia');
   const valBright    = containerEl.querySelector('#val-brightness');
   const valContr     = containerEl.querySelector('#val-contrast');
   const valSat       = containerEl.querySelector('#val-saturation');
+  const valTemp      = containerEl.querySelector('#val-temp');
+  const valSepia     = containerEl.querySelector('#val-sepia');
   const btnBW        = containerEl.querySelector('#btn-toggle-bw');
   const btnAutoEnhance = containerEl.querySelector('#btn-auto-enhance');
   const btnWarmTone    = containerEl.querySelector('#btn-tone-warm');
+  const btnCoolTone    = containerEl.querySelector('#btn-tone-cool');
+  const btnSepiaTone   = containerEl.querySelector('#btn-tone-sepia');
   const btnRotateCW  = containerEl.querySelector('#btn-rotate-cw');
   const btnRotateCCW = containerEl.querySelector('#btn-rotate-ccw');
   const sliderTilt   = containerEl.querySelector('#slider-tilt');
@@ -276,21 +318,18 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
   const btnFlipV     = containerEl.querySelector('#btn-flip-v');
   const btnReset     = containerEl.querySelector('#btn-adjust-reset');
   const groupSat     = containerEl.querySelector('#group-saturation');
+  const groupTemp    = containerEl.querySelector('#group-temp');
+  const groupSepia   = containerEl.querySelector('#group-sepia');
 
   if (btnAutoEnhance) {
     btnAutoEnhance.addEventListener('click', () => {
       state.brightness = 108;
       state.contrast   = 112;
       state.saturation = 110;
+      state.sepia      = 0;
+      state.temperature= 0;
       state.isBW       = false;
-      if (sliderBright) sliderBright.value = 108;
-      if (sliderContr)  sliderContr.value = 112;
-      if (sliderSat)    sliderSat.value = 110;
-      if (valBright)    valBright.textContent = '108%';
-      if (valContr)     valContr.textContent = '112%';
-      if (valSat)       valSat.textContent = '110%';
-      if (btnBW)        btnBW.classList.remove('active');
-      if (groupSat)     groupSat.style.opacity = '1';
+      syncColorControls();
       notify();
       toast('Applied Print Auto-Enhance ✨', 'success', 1600);
     });
@@ -300,19 +339,62 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
     btnWarmTone.addEventListener('click', () => {
       state.brightness = 105;
       state.contrast   = 106;
-      state.saturation = 118;
+      state.saturation = 114;
+      state.sepia      = 10;
+      state.temperature= 18;
       state.isBW       = false;
-      if (sliderBright) sliderBright.value = 105;
-      if (sliderContr)  sliderContr.value = 106;
-      if (sliderSat)    sliderSat.value = 118;
-      if (valBright)    valBright.textContent = '105%';
-      if (valContr)     valContr.textContent = '106%';
-      if (valSat)       valSat.textContent = '118%';
-      if (btnBW)        btnBW.classList.remove('active');
-      if (groupSat)     groupSat.style.opacity = '1';
+      syncColorControls();
       notify();
       toast('Applied Warm Portrait Tone ☀️', 'success', 1600);
     });
+  }
+
+  if (btnCoolTone) {
+    btnCoolTone.addEventListener('click', () => {
+      state.brightness = 104;
+      state.contrast   = 108;
+      state.saturation = 96;
+      state.sepia      = 0;
+      state.temperature= -18;
+      state.isBW       = false;
+      syncColorControls();
+      notify();
+      toast('Applied Cool Daylight Tone ❄️', 'success', 1600);
+    });
+  }
+
+  if (btnSepiaTone) {
+    btnSepiaTone.addEventListener('click', () => {
+      state.brightness = 102;
+      state.contrast   = 110;
+      state.saturation = 80;
+      state.sepia      = 65;
+      state.temperature= 12;
+      state.isBW       = false;
+      syncColorControls();
+      notify();
+      toast('Applied Studio Sepia Tone 📜', 'success', 1600);
+    });
+  }
+
+  function syncColorControls() {
+    if (sliderBright) sliderBright.value = state.brightness;
+    if (sliderContr)  sliderContr.value = state.contrast;
+    if (sliderSat)    sliderSat.value = state.saturation;
+    if (sliderTemp)   sliderTemp.value = state.temperature || 0;
+    if (sliderSepia)  sliderSepia.value = state.sepia || 0;
+    if (valBright)    valBright.textContent = `${state.brightness}%`;
+    if (valContr)     valContr.textContent = `${state.contrast}%`;
+    if (valSat)       valSat.textContent = `${state.saturation}%`;
+    if (valTemp) {
+      const t = state.temperature || 0;
+      valTemp.textContent = t > 0 ? `+${t} Warm` : (t < 0 ? `${t} Cool` : '0 (Neutral)');
+    }
+    if (valSepia)     valSepia.textContent = `${state.sepia || 0}%`;
+    if (btnBW)        btnBW.classList.toggle('active', state.isBW);
+    if (groupSat)     groupSat.style.opacity = state.isBW ? '0.4' : '1';
+    if (groupTemp)    groupTemp.style.opacity = state.isBW ? '0.4' : '1';
+    if (groupSepia)   groupSepia.style.opacity = state.isBW ? '0.4' : '1';
   }
 
   const sliderZoom   = containerEl.querySelector('#slider-zoom');
@@ -360,12 +442,31 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
       notify();
     });
   }
+  if (sliderTemp) {
+    sliderTemp.addEventListener('input', () => {
+      state.temperature = parseInt(sliderTemp.value, 10);
+      const t = state.temperature;
+      valTemp.textContent = t > 0 ? `+${t} Warm` : (t < 0 ? `${t} Cool` : '0 (Neutral)');
+      notify();
+    });
+  }
+  if (sliderSepia) {
+    sliderSepia.addEventListener('input', () => {
+      state.sepia = parseInt(sliderSepia.value, 10);
+      valSepia.textContent = `${state.sepia}%`;
+      notify();
+    });
+  }
   if (btnBW) {
     btnBW.addEventListener('click', () => {
       state.isBW = !state.isBW;
       btnBW.classList.toggle('active', state.isBW);
       if (groupSat) groupSat.style.opacity = state.isBW ? '0.4' : '1';
       if (groupSat) groupSat.style.pointerEvents = state.isBW ? 'none' : 'auto';
+      if (groupTemp) groupTemp.style.opacity = state.isBW ? '0.4' : '1';
+      if (groupTemp) groupTemp.style.pointerEvents = state.isBW ? 'none' : 'auto';
+      if (groupSepia) groupSepia.style.opacity = state.isBW ? '0.4' : '1';
+      if (groupSepia) groupSepia.style.pointerEvents = state.isBW ? 'none' : 'auto';
       notify();
     });
   }
@@ -461,13 +562,11 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
       state.brightness = 100;
       state.contrast = 100;
       state.saturation = 100;
+      state.temperature = 0;
+      state.sepia = 0;
       state.isBW = false;
       state.bgPreset = 'none';
-      if (sliderBright) { sliderBright.value = 100; valBright.textContent = '100%'; }
-      if (sliderContr)  { sliderContr.value = 100; valContr.textContent = '100%'; }
-      if (sliderSat)    { sliderSat.value = 100; valSat.textContent = '100%'; }
-      if (btnBW)        { btnBW.classList.remove('active'); }
-      if (groupSat)     { groupSat.style.opacity = '1'; groupSat.style.pointerEvents = 'auto'; }
+      syncColorControls();
       if (bgPicker) {
         bgPicker.querySelectorAll('.bg-tint-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === 'none'));
       }
@@ -544,6 +643,13 @@ export function initImageAdjustments(containerEl, onChange, currentState = {}) {
       if (valContr) valContr.textContent = `${state.contrast}%`;
       if (sliderSat) sliderSat.value = state.saturation;
       if (valSat) valSat.textContent = `${state.saturation}%`;
+      if (sliderTemp) sliderTemp.value = state.temperature || 0;
+      if (valTemp) {
+        const t = state.temperature || 0;
+        valTemp.textContent = t > 0 ? `+${t} Warm` : (t < 0 ? `${t} Cool` : '0 (Neutral)');
+      }
+      if (sliderSepia) sliderSepia.value = state.sepia || 0;
+      if (valSepia) valSepia.textContent = `${state.sepia || 0}%`;
       if (sliderZoom) sliderZoom.value = Math.round(state.zoom * 100);
       if (valZoom) valZoom.textContent = `${Math.round(state.zoom * 100)}%`;
       if (sliderPanX) sliderPanX.value = state.panX;
