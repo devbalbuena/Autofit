@@ -475,6 +475,37 @@ export function initPrintSettings(containerEl, onChange, currentState = {}) {
       if (statTotalPhotos) statTotalPhotos.textContent = `${totalPhotos} pcs`;
       recalculateEconomics();
     },
+    applySettings: (s = {}) => {
+      if (s.orientation && toggleOrientation) {
+        toggleOrientation.querySelectorAll('.orientation-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.orientation === s.orientation);
+        });
+      }
+      if (s.alignment && toggleAlignment) {
+        toggleAlignment.querySelectorAll('.orientation-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.alignment === s.alignment);
+        });
+      }
+      if (s.margin !== undefined && sliderMargin) {
+        sliderMargin.value = s.margin;
+        if (valMargin) valMargin.textContent = formatDimension(s.margin);
+        updateMarginChip(s.margin);
+      }
+      if (s.gap !== undefined && sliderGap) {
+        sliderGap.value = s.gap;
+        if (valGap) valGap.textContent = s.gap === 0 ? '0 (Zero-gap)' : formatDimension(s.gap);
+        updateGapChip(s.gap);
+      }
+      if (s.guideType && toggleGuide) {
+        toggleGuide.querySelectorAll('.fit-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.guide === s.guideType);
+        });
+        const guideColorPresets = containerEl.querySelector('#guide-color-presets');
+        if (guideColorPresets) {
+          guideColorPresets.style.display = s.guideType === 'none' ? 'none' : 'flex';
+        }
+      }
+    },
     refreshUnits: () => {
       if (sliderMargin && valMargin) {
         valMargin.textContent = formatDimension(parseFloat(sliderMargin.value));

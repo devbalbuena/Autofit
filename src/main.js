@@ -29,6 +29,7 @@ import { ComplianceModalHTML, initComplianceModal } from './components/Complianc
 import { ClaimSlipModalHTML, initClaimSlipModal } from './components/ClaimSlipModal.js';
 import { executePrint, initPrintShortcut } from './lib/printEngine.js';
 import { exportHighResPNG, exportHighResPDF } from './lib/exporter.js';
+import { getStudioTemplates, saveStudioTemplate, deleteStudioTemplate } from './lib/templates.js';
 
 // Helper to render sheet paper <optgroup> dropdown options
 function renderSheetOptionsHTML(selectedId) {
@@ -255,6 +256,24 @@ document.getElementById('app').innerHTML = `
         <div class="panel-tab-content">
           <!-- ── TAB 1: LAYOUT & SIZES ── -->
           <div class="tab-pane active" id="pane-layout">
+            <!-- Studio Layout & Gang-Run Presets -->
+            <div class="panel-section" id="section-studio-templates">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div class="panel-label" style="margin-bottom:0">Studio Layout Templates</div>
+                <button class="btn-text-action" id="btn-save-current-template" title="Save current sheet layout as a reusable template">
+                  💾 Save Current
+                </button>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <select class="sheet-select" id="template-select" style="flex:1">
+                  <option value="">⚡ Quick Load Template...</option>
+                </select>
+                <button class="btn ghost btn-icon-only" id="btn-delete-template" style="display:none;padding:6px 8px;color:var(--danger)" title="Delete selected custom template">
+                  🗑️
+                </button>
+              </div>
+            </div>
+
             <div class="panel-section">
               <div class="panel-label">Print Size & Combos</div>
               ${SizeSelectorHTML()}
@@ -1340,6 +1359,107 @@ sheetSelect.addEventListener('change', () => {
 });
 
 updateDeleteCustomSheetBtn();
+
+// ─── Studio Layout Templates ──────────────────────────────────────────────
+const templateSelect = document.getElementById('template-select');
+const btnSaveTemplate = document.getElementById('btn-save-current-template');
+const btnDeleteTemplate = document.getElementById('btn-delete-template');
+
+function populateTemplateOptions(selectedId = '') {
+  if (!templateSelect) return;
+  const tmpls = getStudioTemplates();
+  let html = '<option value="">⚡ Quick Load Template...</option>';
+  tmpls.forEach(t => {
+    const icon = t.isBuiltin ? '📦' : '⭐';
+    html += `<option value="${t.id}" ${t.id === selectedId ? 'selected' : ''}>${icon} ${t.name}</option>`;
+  });
+  templateSelect.innerHTML = html;
+  updateDeleteTemplateBtn();
+}
+
+function updateDeleteTemplateBtn() {
+  if (!btnDeleteTemplate || !templateSelect) return;
+  const tmpls = getStudioTemplates();
+  const selected = tmpls.find(t => t.id === templateSelect.value);
+  btnDeleteTemplate.style.display = (selected && !selected.isBuiltin) ? 'inline-flex' : 'none';
+}
+
+if (templateSelect) {
+  templateSelect.addEventListener('change', () => {
+    const tmpls = getStudioTemplates();
+    const tmpl = tmpls.find(t => t.id === templateSelect.value);
+    updateDeleteTemplateBtn();
+    if (!tmpl) return;
+
+    if (tmpl.sizeId) {
+      state.sizeId = tmpl.sizeId;
+      sizeSelector.setSelected(tmpl.sizeId);
+    }
+    if (tmpl.sheetId) {
+      state.sheetId = tmpl.sheetId;
+      sheetSelect.value = tmpl.sheetId;
+      updateDeleteCustomSheetBtn();
+    }
+    if (tmpl.orientation) state.orientation = tmpl.orientation;
+    if (tmpl.alignment) state.alignment = tmpl.alignment;
+    if (tmpl.margin !== undefined) state.margin = tmpl.margin;
+    if (tmpl.gap !== undefined) state.gap = tmpl.gap;
+    if (tmpl.guideType) state.guideType = tmpl.guideType;
+    if (tmpl.count !== undefined) state.count = tmpl.count;
+
+    state.customOffsetX = 0;
+    state.customOffsetY = 0;
+
+    printSettingsController.applySettings({
+      orientation: state.orientation,
+      alignment: state.alignment,
+      margin: state.margin,
+      gap: state.gap,
+      guideType: state.guideType,
+    });
+
+    updateCountDisplay();
+    if (state.photos.length > 0) updatePreview();
+    toast(`Loaded template: ${tmpl.name}`, 'success');
+  });
+}
+
+if (btnSaveTemplate) {
+  btnSaveTemplate.addEventListener('click', () => {
+    const name = prompt('Enter a name for this studio layout template:', 'My Custom Layout');
+    if (!name || !name.trim()) return;
+
+    const newTmpl = saveStudioTemplate(name.trim(), {
+      sizeId: state.sizeId,
+      sheetId: state.sheetId,
+      orientation: state.orientation,
+      alignment: state.alignment,
+      margin: state.margin,
+      gap: state.gap,
+      guideType: state.guideType,
+      count: state.count,
+    });
+
+    populateTemplateOptions(newTmpl.id);
+    toast(`Template "${name.trim()}" saved!`, 'success');
+  });
+}
+
+if (btnDeleteTemplate) {
+  btnDeleteTemplate.addEventListener('click', () => {
+    const id = templateSelect.value;
+    const tmpls = getStudioTemplates();
+    const tmpl = tmpls.find(t => t.id === id);
+    if (!tmpl || tmpl.isBuiltin) return;
+    if (confirm(`Delete custom template "${tmpl.name}"?`)) {
+      deleteStudioTemplate(id);
+      populateTemplateOptions();
+      toast('Custom template deleted', 'info');
+    }
+  });
+}
+
+populateTemplateOptions();
 
 if (countInput) {
   countInput.addEventListener('input', () => {
