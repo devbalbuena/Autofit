@@ -47,12 +47,12 @@ export const DEFAULT_STUDIO_TEMPLATES = [
 ];
 
 export function getStudioTemplates() {
+  if (typeof localStorage === 'undefined') return DEFAULT_STUDIO_TEMPLATES;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const custom = raw ? JSON.parse(raw) : [];
     return [...DEFAULT_STUDIO_TEMPLATES, ...custom];
   } catch (err) {
-    console.warn('Failed to load studio templates from localStorage:', err);
     return DEFAULT_STUDIO_TEMPLATES;
   }
 }
@@ -68,16 +68,21 @@ export function saveStudioTemplate(name, config) {
     ...config,
   };
   templates.push(newTmpl);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+  }
   return newTmpl;
 }
 
 export function deleteStudioTemplate(id) {
   const custom = getCustomStudioTemplates().filter(t => t.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+  }
 }
 
 function getCustomStudioTemplates() {
+  if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
